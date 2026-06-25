@@ -36,9 +36,13 @@ const FALLBACK_PLANS: PricingPlan[] = [
 
 async function getPricingPlans(): Promise<PricingPlan[]> {
   try {
+    if (!process.env.BACKEND_URL) return FALLBACK_PLANS;
     const res = await fetch(
       `${process.env.BACKEND_URL}/api/v1/public/pricing`,
-      { next: { revalidate: 3600 } } // revalidate every hour
+      {
+        next: { revalidate: 3600 },
+        signal: AbortSignal.timeout(5000),
+      }
     );
     if (!res.ok) return FALLBACK_PLANS;
     const json = await res.json();

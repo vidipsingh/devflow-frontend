@@ -8,13 +8,17 @@
 
   async function getPlatformStats() {
     try {
+      if (!process.env.BACKEND_URL) return null;
       const res = await fetch(
         `${process.env.BACKEND_URL}/api/v1/public/stats`,
-        { next: {revalidate: 60} }
+        {
+          next: { revalidate: 60 },
+          signal: AbortSignal.timeout(5000),
+        }
       );
       if (!res.ok) return null;
       const json = await res.json();
-      return json.data as { 
+      return json.data as {
         totalUsers: number;
         totalRepositories: number;
         totalSnippets: number;

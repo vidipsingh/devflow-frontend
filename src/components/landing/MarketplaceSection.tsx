@@ -12,9 +12,13 @@ type Snippet = {
 
 async function getSnippets(): Promise<Snippet[]> {
   try {
+    if (!process.env.BACKEND_URL) return [];
     const res = await fetch(
       `${process.env.BACKEND_URL}/api/v1/marketplace/snippets?limit=6&sort=downloads`,
-      { next: { revalidate: 300 } }
+      {
+        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(5000),
+      }
     );
     if (!res.ok) return [];
     const json = await res.json();
