@@ -34,12 +34,6 @@ export default function CTASection() {
               <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </Link>
-          <Link
-            href="/contact"
-            className="btn-outline inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-base font-medium w-full sm:w-auto justify-center"
-          >
-            Talk to sales
-          </Link>
         </div>
 
       </div>

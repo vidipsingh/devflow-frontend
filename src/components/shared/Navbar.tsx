@@ -14,13 +14,24 @@ const NAV_LINKS = [
 ];
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
+  const [scrolled, setScrolled]     = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoHref, setLogoHref]     = useState("/");
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("devflow_token")) {
+        setLogoHref("/dashboard");
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   return (
@@ -32,8 +43,7 @@ export default function Navbar() {
       }`}
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <Link href={logoHref} className="flex items-center gap-2.5 group">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg group-hover:shadow-indigo-500/40 transition-shadow duration-300">
            <SiCodeigniter />
 

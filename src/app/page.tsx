@@ -1,6 +1,7 @@
 
 import Navbar from "@/components/shared/Navbar";
 import Footer from "@/components/shared/Footer";
+import AuthRedirect from "@/components/shared/AuthRedirect";
 import HeroSection from "@/components/landing/HeroSection";
 import StatsSection from "@/components/landing/StatsSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
@@ -15,6 +16,7 @@ import CTASection from "@/components/landing/CTASection";
 export default function Home() {
   return (
     <>
+      <AuthRedirect />
       <Navbar />
       <main className="flex flex-col">
         <HeroSection />
