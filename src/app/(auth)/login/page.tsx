@@ -1,4 +1,5 @@
 
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import LoginForm from "@/components/auth/LoginForm";
@@ -23,9 +24,10 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Card */}
       <div className="glass rounded-2xl border border-white/8 p-6 shadow-2xl shadow-black/40">
-        <LoginForm />
+        <Suspense fallback={<div className="h-48 flex items-center justify-center"><div className="w-6 h-6 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" /></div>}>
+          <LoginForm />
+        </Suspense>
       </div>
 
       {/* Footer link */}

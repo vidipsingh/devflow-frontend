@@ -1,5 +1,5 @@
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -42,6 +42,9 @@ export const metadata: Metadata = {
     description: "Ship better code faster with AI-powered reviews.",
   },
   robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
   themeColor: "#0d0d0f",
 };
 
