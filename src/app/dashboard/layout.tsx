@@ -30,12 +30,10 @@ export default function DashboardLayout({
     }
   }, [router]);
 
-  const { user, notifications, unreadCount, markAllRead, markRead } = useDashboard();
+  const { user, stats, notifications, unreadCount, markAllRead, markRead } = useDashboard();
 
-  // Count open PRs + issues across all repos for sidebar badges
-  // (will come from real API later — hardcoded for now)
-  const openPRs    = 7;
-  const openIssues = 11;
+  const openPRs    = (stats.find((s) => s.icon === "pr")?.value as number) ?? 0;
+  const openIssues = 0;
 
   // While we are checking auth (first render), show a full-screen spinner.
   // This avoids a flash of dashboard content before the redirect fires.

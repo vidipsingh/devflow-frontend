@@ -5,9 +5,9 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import type { DashboardUser, Notification } from "@/hooks/useDashboard";
 
-// ---------------------------------------------------------------------------
+
 // Icons
-// ---------------------------------------------------------------------------
+
 
 function BellIcon() {
   return (
@@ -35,9 +35,9 @@ function PlusIcon() {
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // Notification dropdown
-// ---------------------------------------------------------------------------
+
 
 function NotificationPanel({
   notifications,
@@ -107,9 +107,9 @@ function NotificationPanel({
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // Topbar
-// ---------------------------------------------------------------------------
+
 
 interface TopbarProps {
   user: DashboardUser;
@@ -209,7 +209,7 @@ export default function Topbar({
             className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-white/[0.06] transition-all"
           >
             <div className={`w-7 h-7 rounded-full ${user.avatarColor} flex items-center justify-center text-white text-xs font-bold`}>
-              {user.name[0]}
+              {(user.name || user.username || "?")[0].toUpperCase()}
             </div>
             <span className="hidden sm:block text-xs font-medium text-[#a1a1aa]">{user.username}</span>
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[#52525b]">
@@ -221,7 +221,7 @@ export default function Topbar({
             <div className="absolute right-0 top-full mt-2 w-52 glass rounded-xl border border-white/[0.08] shadow-2xl shadow-black/50 z-50 overflow-hidden py-1">
               {/* User info */}
               <div className="px-3 py-2.5 border-b border-white/[0.06]">
-                <p className="text-xs font-semibold text-white">{user.name}</p>
+                <p className="text-xs font-semibold text-white">{user.name || user.username}</p>
                 <p className="text-[11px] text-[#52525b]">@{user.username}</p>
               </div>
               {/* Gamification strip */}

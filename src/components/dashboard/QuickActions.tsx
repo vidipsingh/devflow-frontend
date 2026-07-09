@@ -4,9 +4,9 @@
 import Link from "next/link";
 import type { DashboardUser } from "@/hooks/useDashboard";
 
-// ---------------------------------------------------------------------------
+
 // Action definitions
-// ---------------------------------------------------------------------------
+
 
 interface QuickAction {
   label: string;
@@ -101,9 +101,9 @@ const ACTIONS: QuickAction[] = [
   },
 ];
 
-// ---------------------------------------------------------------------------
+
 // GamificationStrip — shows XP, level, badges
-// ---------------------------------------------------------------------------
+
 
 function GamificationStrip({ user }: { user: DashboardUser }) {
   const pct = Math.round((user.xp / user.xpToNext) * 100);
@@ -147,9 +147,9 @@ function GamificationStrip({ user }: { user: DashboardUser }) {
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // QuickActions
-// ---------------------------------------------------------------------------
+
 
 export default function QuickActions({ user }: { user: DashboardUser }) {
   return (

@@ -3,10 +3,7 @@
 
 import { useMemo } from "react";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
-
 export interface PasswordStrength {
   /** 0–5 score */
   score: number;
@@ -17,9 +14,6 @@ export interface PasswordStrength {
   labelColor: string;
 }
 
-// ---------------------------------------------------------------------------
-// Pure scorer (exported so it can be tested independently)
-// ---------------------------------------------------------------------------
 
 export function scorePassword(pw: string): PasswordStrength {
   if (pw.length === 0) {
@@ -39,9 +33,7 @@ export function scorePassword(pw: string): PasswordStrength {
                   return { score, label: "Strong", barColor: "bg-emerald-500",labelColor: "text-emerald-400" };
 }
 
-// ---------------------------------------------------------------------------
 // Hook
-// ---------------------------------------------------------------------------
 
 /**
  * Returns a memoised `PasswordStrength` object that updates whenever

@@ -1,23 +1,25 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
-// ---------------------------------------------------------------------------
+
 // Types
-// ---------------------------------------------------------------------------
-
 export interface DashboardUser {
   id: string;
   name: string;
   username: string;
-  avatarColor: string;  // tailwind bg-* class
+  email: string;
+  avatar: string;
+  avatarColor: string;
   plan: "free" | "pro" | "team";
   streak: number;
   level: number;
   xp: number;
   xpToNext: number;
   badges: string[];
+  aiReviewsUsed: number;
+  aiReviewsLimit: number;
 }
 
 export interface ActivityItem {
@@ -52,33 +54,37 @@ export interface UseDashboardReturn {
   activity: ActivityItem[];
   notifications: Notification[];
   unreadCount: number;
+  isLoading: boolean;
+  error: string | null;
   markAllRead: () => void;
   markRead: (id: string) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Static mock data
-// ---------------------------------------------------------------------------
 
-const MOCK_USER: DashboardUser = {
-  id: "u1",
-  name: "Vidip Singh",
-  username: "vidipsingh",
-  avatarColor: "bg-gradient-to-br from-indigo-500 to-cyan-400",
-  plan: "pro",
-  streak: 14,
-  level: 7,
-  xp: 3420,
-  xpToNext: 5000,
-  badges: ["🔥 Streaker", "⚡ Fast Merger", "🤖 AI Power User"],
-};
+// API types
+interface MeResponse {
+  userId: string;
+  username: string;
+  email: string;
+  plan: string;
+  name?: string;
+  avatar?: string;
+  aiUsage?: { reviewsUsed: number; reviewsLimit: number };
+}
 
-const MOCK_STATS: StatCard[] = [
-  { label: "Repositories",    value: 12,  delta: "+2 this month",  positive: true,  icon: "repo",   color: "text-indigo-400"  },
-  { label: "Stars earned",    value: 248, delta: "+34 this week",  positive: true,  icon: "star",   color: "text-amber-400"   },
-  { label: "Pull Requests",   value: 7,   delta: "3 awaiting review", positive: false, icon: "pr",  color: "text-violet-400"  },
-  { label: "AI Reviews",      value: 56,  delta: "+12 this week",  positive: true,  icon: "review", color: "text-cyan-400"    },
-];
+interface APIRepoStats {
+  stars: number;
+  forks: number;
+  openIssues: number;
+  openPRs: number;
+}
+
+interface APIRepo {
+  id: string;
+  name: string;
+  visibility: string;
+  stats: APIRepoStats;
+}
 
 const MOCK_ACTIVITY: ActivityItem[] = [
   { id: "a1", type: "pr_merged",  repo: "payment-service",   message: "Merged PR #42 — Add Stripe webhook handler",          time: "2m ago",   meta: "+240 −18"   },
@@ -99,13 +105,149 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   { id: "n5", title: "PR needs your review",  body: "priya_eng requested your review on PR #15 in cli-tools.",   read: true,  time: "3h ago"  },
 ];
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
+const AVATAR_GRADIENTS = [
+  "bg-gradient-to-br from-indigo-500 to-cyan-400",
+  "bg-gradient-to-br from-violet-500 to-pink-400",
+  "bg-gradient-to-br from-emerald-500 to-teal-400",
+  "bg-gradient-to-br from-amber-500 to-orange-400",
+  "bg-gradient-to-br from-rose-500 to-red-400",
+];
+
+function avatarGradient(username: string): string {
+  let sum = 0;
+  for (let i = 0; i < username.length; i++) sum += username.charCodeAt(i);
+  return AVATAR_GRADIENTS[sum % AVATAR_GRADIENTS.length];
+}
+
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+function getToken(): string | null {
+  try {
+    return typeof window !== "undefined"
+      ? localStorage.getItem("devflow_token")
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 export function useDashboard(): UseDashboardReturn {
+  const [meData, setMeData] = useState<MeResponse | null>(null);
+  const [repos, setRepos] = useState<APIRepo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
 
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    const token = getToken();
+    if (!token) {
+      setError("Not authenticated");
+      setIsLoading(false);
+      return;
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+
+    try {
+      // Fetch /me and /repositories in parallel
+      const [meRes, reposRes] = await Promise.all([
+        fetch(`${API_BASE}/api/v1/me`, { headers }),
+        fetch(`${API_BASE}/api/v1/repositories`, { headers }),
+      ]);
+
+      if (meRes.ok) {
+        const j = await meRes.json();
+        setMeData(j?.data ?? j);
+      }
+
+      if (reposRes.ok) {
+        const j = await reposRes.json();
+        setRepos(j?.data?.repositories ?? []);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load dashboard");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  
+  // Derive user object
+  
+  const user = useMemo<DashboardUser>(() => {
+    const username = meData?.username ?? "you";
+    const name = meData?.name ?? username;
+    const plan = (meData?.plan ?? "free") as DashboardUser["plan"];
+    return {
+      id: meData?.userId ?? "",
+      name,
+      username,
+      email: meData?.email ?? "",
+      avatar: meData?.avatar ?? "",
+      avatarColor: avatarGradient(username),
+      plan,
+      // Gamification — no backend yet, static defaults
+      streak: 0,
+      level: 1,
+      xp: 0,
+      xpToNext: 1000,
+      badges: [],
+      aiReviewsUsed: meData?.aiUsage?.reviewsUsed ?? 0,
+      aiReviewsLimit: meData?.aiUsage?.reviewsLimit ?? 10,
+    };
+  }, [meData]);
+
+    
+  const stats = useMemo<StatCard[]>(() => {
+    const totalRepos = repos.length;
+    const totalStars = repos.reduce((acc, r) => acc + (r.stats?.stars ?? 0), 0);
+    const openPRs = repos.reduce((acc, r) => acc + (r.stats?.openPRs ?? 0), 0);
+    const aiReviews = user.aiReviewsUsed;
+
+    return [
+      {
+        label: "Repositories",
+        value: totalRepos,
+        delta: totalRepos === 0 ? "No repos yet" : `${totalRepos} total`,
+        positive: totalRepos > 0,
+        icon: "repo",
+        color: "text-indigo-400",
+      },
+      {
+        label: "Stars earned",
+        value: totalStars,
+        delta: totalStars === 0 ? "Star your first repo" : `across ${totalRepos} repos`,
+        positive: totalStars > 0,
+        icon: "star",
+        color: "text-amber-400",
+      },
+      {
+        label: "Open Pull Requests",
+        value: openPRs,
+        delta: openPRs === 0 ? "All clear" : `${openPRs} awaiting review`,
+        positive: openPRs === 0,
+        icon: "pr",
+        color: "text-violet-400",
+      },
+      {
+        label: "AI Reviews",
+        value: aiReviews,
+        delta: `${user.aiReviewsLimit - aiReviews} remaining`,
+        positive: user.aiReviewsLimit - aiReviews > 0,
+        icon: "review",
+        color: "text-cyan-400",
+      },
+    ];
+  }, [repos, user.aiReviewsUsed, user.aiReviewsLimit]);
+
+  
+  // Notifications
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
     [notifications]
@@ -120,11 +262,13 @@ export function useDashboard(): UseDashboardReturn {
     );
 
   return {
-    user: MOCK_USER,
-    stats: MOCK_STATS,
+    user,
+    stats,
     activity: MOCK_ACTIVITY,
     notifications,
     unreadCount,
+    isLoading,
+    error,
     markAllRead,
     markRead,
   };

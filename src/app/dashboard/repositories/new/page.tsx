@@ -17,9 +17,9 @@ import {
 } from "lucide-react";
 import { useRepoActions } from "@/hooks/useRepoActions";
 
-// ---------------------------------------------------------------------------
+
 // Field components
-// ---------------------------------------------------------------------------
+
 
 function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
   return (
@@ -42,9 +42,9 @@ function FieldError({ message }: { message?: string }) {
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // Visibility option
-// ---------------------------------------------------------------------------
+
 
 function VisibilityOption({
   value,
@@ -91,9 +91,9 @@ function VisibilityOption({
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // Page
-// ---------------------------------------------------------------------------
+
 
 export default function NewRepositoryPage() {
   const router = useRouter();

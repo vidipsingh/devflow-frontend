@@ -22,9 +22,9 @@ function authHeaders() {
   };
 }
 
-// ---------------------------------------------------------------------------
+
 // Types
-// ---------------------------------------------------------------------------
+
 
 export interface CreateRepoPayload {
   name: string;
@@ -48,9 +48,9 @@ export interface UseRepoActionsReturn {
   pinRepo: (slug: string, pinned: boolean) => Promise<{ ok: boolean; error?: string }>;
 }
 
-// ---------------------------------------------------------------------------
+
 // Hook
-// ---------------------------------------------------------------------------
+
 
 export function useRepoActions(): UseRepoActionsReturn {
   const [isSubmitting, setIsSubmitting] = useState(false);

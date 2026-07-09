@@ -7,9 +7,9 @@ import { usePathname } from "next/navigation";
 import { SiCodeigniter } from "react-icons/si";
 import type { DashboardUser } from "@/hooks/useDashboard";
 
-// ---------------------------------------------------------------------------
+
 // Nav item types
-// ---------------------------------------------------------------------------
+
 
 interface NavItem {
   label: string;
@@ -23,9 +23,9 @@ interface NavSection {
   items: NavItem[];
 }
 
-// ---------------------------------------------------------------------------
+
 // Icons (inline SVG — no extra dep)
-// ---------------------------------------------------------------------------
+
 
 const Icon = {
   home: (
@@ -98,9 +98,9 @@ const Icon = {
   ),
 };
 
-// ---------------------------------------------------------------------------
+
 // Build nav sections
-// ---------------------------------------------------------------------------
+
 
 function buildNavSections(openPRs: number, openIssues: number): NavSection[] {
   return [
@@ -130,9 +130,9 @@ function buildNavSections(openPRs: number, openIssues: number): NavSection[] {
   ];
 }
 
-// ---------------------------------------------------------------------------
+
 // NavLink atom
-// ---------------------------------------------------------------------------
+
 
 function NavLink({
   item,
@@ -174,9 +174,9 @@ function NavLink({
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // Sidebar
-// ---------------------------------------------------------------------------
+
 
 interface SidebarProps {
   user: DashboardUser;
@@ -240,7 +240,7 @@ export default function Sidebar({ user, openPRs = 0, openIssues = 0 }: SidebarPr
         <div className="flex-shrink-0 border-t border-white/[0.05] px-3 py-3">
           <div className="flex items-center gap-2.5">
             <div className={`w-7 h-7 rounded-full ${user.avatarColor} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
-              {user.name[0]}
+              {(user.name || user.username || "?")[0].toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-white truncate">{user.name}</p>

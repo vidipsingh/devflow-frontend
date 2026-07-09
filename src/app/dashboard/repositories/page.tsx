@@ -14,9 +14,9 @@ import RepoEmptyState from "@/components/repositories/RepoEmptyState";
 import EditRepoModal from "@/components/repositories/EditRepoModal";
 import DeleteRepoModal from "@/components/repositories/DeleteRepoModal";
 
-// ---------------------------------------------------------------------------
+
 // Loading skeleton
-// ---------------------------------------------------------------------------
+
 
 function SkeletonCard() {
   return (
@@ -76,9 +76,9 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // Page
-// ---------------------------------------------------------------------------
+
 
 export default function RepositoriesPage() {
   const {

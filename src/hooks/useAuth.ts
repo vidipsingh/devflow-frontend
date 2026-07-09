@@ -3,9 +3,9 @@
 
 import { useState } from "react";
 
-// ---------------------------------------------------------------------------
+
 // Types
-// ---------------------------------------------------------------------------
+
 
 export type AuthProvider = "github" | "google";
 export type AuthLoadingState = AuthProvider | "email" | null;
@@ -32,9 +32,9 @@ export interface UseAuthReturn {
   registerWithEmail: (fields: RegisterFields) => Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
+
 // Helpers
-// ---------------------------------------------------------------------------
+
 
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 
@@ -57,9 +57,9 @@ async function postJSON<T>(path: string, body: T): Promise<{ ok: boolean; data: 
   return { ok: res.ok, data: json.data ?? {}, error: json.error };
 }
 
-// ---------------------------------------------------------------------------
+
 // Hook
-// ---------------------------------------------------------------------------
+
 
 export function useAuth(): UseAuthReturn {
   const [loading, setLoading] = useState<AuthLoadingState>(null);

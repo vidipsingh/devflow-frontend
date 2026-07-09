@@ -3,9 +3,9 @@
 
 import type { ActivityItem } from "@/hooks/useDashboard";
 
-// ---------------------------------------------------------------------------
+
 // Activity type metadata
-// ---------------------------------------------------------------------------
+
 
 type ActivityMeta = {
   label: string;
@@ -86,9 +86,9 @@ const ACTIVITY_META: Record<ActivityItem["type"], ActivityMeta> = {
   },
 };
 
-// ---------------------------------------------------------------------------
+
 // Single activity row
-// ---------------------------------------------------------------------------
+
 
 function ActivityRow({ item }: { item: ActivityItem }) {
   const meta = ACTIVITY_META[item.type];
@@ -131,9 +131,9 @@ function ActivityRow({ item }: { item: ActivityItem }) {
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // ActivityFeed
-// ---------------------------------------------------------------------------
+
 
 export default function ActivityFeed({ activity }: { activity: ActivityItem[] }) {
   return (

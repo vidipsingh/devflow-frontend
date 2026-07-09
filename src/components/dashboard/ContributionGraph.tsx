@@ -3,9 +3,9 @@
 
 import { useMemo } from "react";
 
-// ---------------------------------------------------------------------------
+
 // Types
-// ---------------------------------------------------------------------------
+
 
 interface DayCell {
   date: string;       // "YYYY-MM-DD"
@@ -13,9 +13,9 @@ interface DayCell {
   level: 0 | 1 | 2 | 3 | 4;
 }
 
-// ---------------------------------------------------------------------------
+
 // Generate mock contribution data (52 weeks × 7 days)
-// ---------------------------------------------------------------------------
+
 
 function generateContributions(): DayCell[][] {
   const weeks: DayCell[][] = [];
@@ -56,9 +56,9 @@ function generateContributions(): DayCell[][] {
   return weeks;
 }
 
-// ---------------------------------------------------------------------------
+
 // Color map
-// ---------------------------------------------------------------------------
+
 
 const LEVEL_CLASSES: Record<DayCell["level"], string> = {
   0: "bg-white/[0.05]",
@@ -68,9 +68,9 @@ const LEVEL_CLASSES: Record<DayCell["level"], string> = {
   4: "bg-indigo-400",
 };
 
-// ---------------------------------------------------------------------------
+
 // Month labels
-// ---------------------------------------------------------------------------
+
 
 function getMonthLabels(weeks: DayCell[][]): { label: string; col: number }[] {
   const labels: { label: string; col: number }[] = [];
@@ -90,9 +90,9 @@ function getMonthLabels(weeks: DayCell[][]): { label: string; col: number }[] {
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// ---------------------------------------------------------------------------
+
 // ContributionGraph
-// ---------------------------------------------------------------------------
+
 
 export default function ContributionGraph({ streak, totalThisYear = 0 }: { streak: number; totalThisYear?: number }) {
   const weeks = useMemo(() => generateContributions(), []);

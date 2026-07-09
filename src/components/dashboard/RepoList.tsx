@@ -4,9 +4,9 @@
 import Link from "next/link";
 import type { Repository, SortKey, UseRepositoryReturn } from "@/hooks/useRepository";
 
-// ---------------------------------------------------------------------------
+
 // CI status badge
-// ---------------------------------------------------------------------------
+
 
 function CIBadge({ status }: { status: Repository["ciStatus"] }) {
   if (status === "none") return null;
@@ -23,9 +23,9 @@ function CIBadge({ status }: { status: Repository["ciStatus"] }) {
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // Language dot
-// ---------------------------------------------------------------------------
+
 
 function LangDot({ color, language }: { color: string; language: string }) {
   return (
@@ -36,9 +36,9 @@ function LangDot({ color, language }: { color: string; language: string }) {
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // Single repo card
-// ---------------------------------------------------------------------------
+
 
 function RepoCard({
   repo,
@@ -149,9 +149,9 @@ function RepoCard({
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // Toolbar (search + filters)
-// ---------------------------------------------------------------------------
+
 
 function Toolbar({
   searchQuery,
@@ -179,17 +179,6 @@ function Toolbar({
         />
       </div>
 
-      {/* Visibility filter */}
-      <select
-        value={visibilityFilter}
-        onChange={(e) => setVisibilityFilter(e.target.value as "all" | "public" | "private")}
-        className="px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-[#a1a1aa] focus:outline-none focus:border-indigo-500/40 appearance-none cursor-pointer"
-      >
-        <button value="all" className="cursor-pointer">All</button>
-        <button value="public" className="cursor-pointer">Public</button>
-        <button value="private" className="cursor-pointer">Private</button>
-      </select>
-
       {/* Sort */}
       <select
         value={sortKey}
@@ -204,9 +193,9 @@ function Toolbar({
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // RepoList
-// ---------------------------------------------------------------------------
+
 
 export default function RepoList({
   filtered,

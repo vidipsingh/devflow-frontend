@@ -3,9 +3,9 @@
 
 import type { StatCard } from "@/hooks/useDashboard";
 
-// ---------------------------------------------------------------------------
+
 // Icons per stat type
-// ---------------------------------------------------------------------------
+
 
 function RepoIcon() {
   return (
@@ -66,9 +66,9 @@ const ICON_BG: Record<StatCard["icon"], string> = {
   review: "bg-cyan-500/15 text-cyan-400",
 };
 
-// ---------------------------------------------------------------------------
+
 // Single card
-// ---------------------------------------------------------------------------
+
 
 function StatCardItem({ card }: { card: StatCard }) {
   return (
@@ -99,9 +99,9 @@ function StatCardItem({ card }: { card: StatCard }) {
   );
 }
 
-// ---------------------------------------------------------------------------
+
 // Grid
-// ---------------------------------------------------------------------------
+
 
 export default function OverviewCards({ stats }: { stats: StatCard[] }) {
   return (

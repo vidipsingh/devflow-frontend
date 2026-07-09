@@ -3,9 +3,9 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 
-// ---------------------------------------------------------------------------
+
 // Types
-// ---------------------------------------------------------------------------
+
 
 export type RepoVisibility = "public" | "private";
 export type RepoLanguage = "Go" | "TypeScript" | "Python" | "Rust" | "JavaScript" | "Other";
@@ -68,9 +68,9 @@ interface APIRepository {
   updatedAt: string;
 }
 
-// ---------------------------------------------------------------------------
+
 // Helpers
-// ---------------------------------------------------------------------------
+
 
 const LANGUAGE_COLOR_MAP: Record<string, string> = {
   Go: "bg-cyan-400",
@@ -125,9 +125,9 @@ function mapAPIRepo(r: APIRepository): Repository {
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-// ---------------------------------------------------------------------------
+
 // Hook
-// ---------------------------------------------------------------------------
+
 
 export function useRepository(): UseRepositoryReturn {
   const [repositories, setRepositories] = useState<Repository[]>([]);
