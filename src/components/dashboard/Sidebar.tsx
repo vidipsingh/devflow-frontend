@@ -9,8 +9,6 @@ import type { DashboardUser } from "@/hooks/useDashboard";
 
 
 // Nav item types
-
-
 interface NavItem {
   label: string;
   href: string;
@@ -24,9 +22,7 @@ interface NavSection {
 }
 
 
-// Icons (inline SVG — no extra dep)
-
-
+// Icons
 const Icon = {
   home: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -99,9 +95,6 @@ const Icon = {
 };
 
 
-// Build nav sections
-
-
 function buildNavSections(openPRs: number, openIssues: number): NavSection[] {
   return [
     {
@@ -129,10 +122,6 @@ function buildNavSections(openPRs: number, openIssues: number): NavSection[] {
     },
   ];
 }
-
-
-// NavLink atom
-
 
 function NavLink({
   item,
@@ -174,9 +163,7 @@ function NavLink({
   );
 }
 
-
 // Sidebar
-
 
 interface SidebarProps {
   user: DashboardUser;
@@ -256,7 +243,7 @@ export default function Sidebar({ user, openPRs = 0, openIssues = 0 }: SidebarPr
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed((v) => !v)}
-        className="flex-shrink-0 flex items-center justify-center h-10 border-t border-white/[0.05] text-[#52525b] hover:text-white hover:bg-white/[0.04] transition-all"
+        className="flex-shrink-0 flex items-center justify-center h-10 border-t border-white/[0.05] text-[#52525b] hover:text-white hover:bg-white/[0.04] transition-all cursor-pointer"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         {collapsed ? Icon.chevronRight : Icon.chevronLeft}

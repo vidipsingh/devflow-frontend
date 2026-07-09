@@ -110,7 +110,6 @@ function NotificationPanel({
 
 // Topbar
 
-
 interface TopbarProps {
   user: DashboardUser;
   notifications: Notification[];
@@ -183,7 +182,7 @@ export default function Topbar({
         <div ref={notifRef} className="relative">
           <button
             onClick={() => { setNotifOpen((v) => !v); setUserOpen(false); }}
-            className="relative p-2 rounded-xl text-[#71717a] hover:text-white hover:bg-white/[0.06] transition-all"
+            className="relative p-2 rounded-xl text-[#71717a] hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
             aria-label="Notifications"
           >
             <BellIcon />
@@ -202,11 +201,10 @@ export default function Topbar({
           )}
         </div>
 
-        {/* User avatar + dropdown */}
         <div ref={userRef} className="relative">
           <button
             onClick={() => { setUserOpen((v) => !v); setNotifOpen(false); }}
-            className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-white/[0.06] transition-all"
+            className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-white/[0.06] transition-all cursor-pointer"
           >
             <div className={`w-7 h-7 rounded-full ${user.avatarColor} flex items-center justify-center text-white text-xs font-bold`}>
               {(user.name || user.username || "?")[0].toUpperCase()}
@@ -218,7 +216,7 @@ export default function Topbar({
           </button>
 
           {userOpen && (
-            <div className="absolute right-0 top-full mt-2 w-52 glass rounded-xl border border-white/[0.08] shadow-2xl shadow-black/50 z-50 overflow-hidden py-1">
+            <div className="absolute right-0 top-full mt-2 w-52 bg-gray-950 rounded-xl border border-white/[0.08] shadow-2xl shadow-black/50 z-50 overflow-hidden py-1">
               {/* User info */}
               <div className="px-3 py-2.5 border-b border-white/[0.06]">
                 <p className="text-xs font-semibold text-white">{user.name || user.username}</p>
