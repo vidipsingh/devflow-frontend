@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -13,16 +13,18 @@ export type RepoLanguage = "Go" | "TypeScript" | "Python" | "Rust" | "JavaScript
 export interface Repository {
   id: string;
   name: string;
+  slug: string;
   description: string;
   visibility: RepoVisibility;
   language: RepoLanguage;
-  languageColor: string; // tailwind bg-* class
+  languageColor: string;
   stars: number;
   forks: number;
   openIssues: number;
   openPRs: number;
   lastUpdated: string;
   isForked: boolean;
+  isPinned: boolean;
   topics: string[];
   ciStatus: "passing" | "failing" | "pending" | "none";
   aiReviews: number;
@@ -33,6 +35,9 @@ export type SortKey = "updated" | "stars" | "name";
 export interface UseRepositoryReturn {
   repositories: Repository[];
   filtered: Repository[];
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   sortKey: SortKey;
@@ -40,135 +45,188 @@ export interface UseRepositoryReturn {
   visibilityFilter: "all" | RepoVisibility;
   setVisibilityFilter: (v: "all" | RepoVisibility) => void;
   pinnedIds: string[];
-  togglePin: (id: string) => void;
+  togglePin: (id: string) => Promise<void>;
+}
+interface APIRepoStats {
+  stars: number;
+  forks: number;
+  openIssues: number;
+  openPRs: number;
+}
+
+interface APIRepository {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  visibility: string;
+  language: string;
+  topics: string[];
+  isFork: boolean;
+  isPinned: boolean;
+  stats: APIRepoStats;
+  updatedAt: string;
 }
 
 // ---------------------------------------------------------------------------
-// Mock data
+// Helpers
 // ---------------------------------------------------------------------------
 
-const MOCK_REPOS: Repository[] = [
-  {
-    id: "r1",
-    name: "devflow-backend",
-    description: "Go/Gin REST API powering the DevFlow platform — MongoDB Atlas, JWT auth, AI review engine.",
-    visibility: "public",
-    language: "Go",
-    languageColor: "bg-cyan-400",
-    stars: 84,
-    forks: 12,
-    openIssues: 3,
-    openPRs: 2,
-    lastUpdated: "2m ago",
-    isForked: false,
-    topics: ["go", "gin", "mongodb", "api"],
-    ciStatus: "passing",
-    aiReviews: 18,
-  },
-  {
-    id: "r2",
-    name: "devflow-frontend",
-    description: "Next.js 16 + Tailwind CSS v4 frontend — landing page, dashboard, marketplace.",
-    visibility: "public",
-    language: "TypeScript",
-    languageColor: "bg-blue-400",
-    stars: 61,
-    forks: 7,
-    openIssues: 5,
-    openPRs: 3,
-    lastUpdated: "1h ago",
-    isForked: false,
-    topics: ["nextjs", "tailwind", "react", "typescript"],
-    ciStatus: "passing",
-    aiReviews: 24,
-  },
-  {
-    id: "r3",
-    name: "payment-service",
-    description: "Razorpay + Stripe payment processing microservice with webhook support.",
-    visibility: "private",
-    language: "Go",
-    languageColor: "bg-cyan-400",
-    stars: 0,
-    forks: 0,
-    openIssues: 1,
-    openPRs: 1,
-    lastUpdated: "3h ago",
-    isForked: false,
-    topics: ["payments", "razorpay", "stripe"],
-    ciStatus: "failing",
-    aiReviews: 6,
-  },
-  {
-    id: "r4",
-    name: "cli-tools",
-    description: "Developer productivity CLI — scaffolding, repo templates, and AI commit messages.",
-    visibility: "public",
-    language: "Go",
-    languageColor: "bg-cyan-400",
-    stars: 32,
-    forks: 4,
-    openIssues: 2,
-    openPRs: 1,
-    lastUpdated: "1d ago",
-    isForked: false,
-    topics: ["cli", "go", "developer-tools"],
-    ciStatus: "passing",
-    aiReviews: 5,
-  },
-  {
-    id: "r5",
-    name: "react-query-starter",
-    description: "Opinionated React Query v5 + Zustand starter template with auth and dark mode.",
-    visibility: "public",
-    language: "TypeScript",
-    languageColor: "bg-blue-400",
-    stars: 119,
-    forks: 28,
-    openIssues: 4,
-    openPRs: 0,
-    lastUpdated: "2d ago",
-    isForked: false,
-    topics: ["react", "react-query", "zustand", "template"],
-    ciStatus: "passing",
-    aiReviews: 3,
-  },
-  {
-    id: "r6",
-    name: "next-auth-boilerplate",
-    description: "Forked from t3oss/next-auth — extended with GitHub + Google OAuth and JWT refresh.",
-    visibility: "public",
-    language: "TypeScript",
-    languageColor: "bg-blue-400",
-    stars: 8,
-    forks: 2,
-    openIssues: 0,
-    openPRs: 0,
-    lastUpdated: "5d ago",
-    isForked: true,
-    topics: ["nextauth", "oauth", "jwt"],
+const LANGUAGE_COLOR_MAP: Record<string, string> = {
+  Go: "bg-cyan-400",
+  TypeScript: "bg-blue-400",
+  JavaScript: "bg-yellow-400",
+  Python: "bg-green-400",
+  Rust: "bg-orange-400",
+  "C++": "bg-rose-400",
+  Java: "bg-red-400",
+  Ruby: "bg-pink-400",
+};
+
+function languageColor(lang: string): string {
+  return LANGUAGE_COLOR_MAP[lang] ?? "bg-white/40";
+}
+
+function toRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
+
+function mapAPIRepo(r: APIRepository): Repository {
+  return {
+    id: r.id,
+    name: r.name,
+    slug: r.slug ?? r.name.toLowerCase().replace(/\s+/g, "-"),
+    description: r.description ?? "",
+    visibility: (r.visibility === "private" ? "private" : "public") as RepoVisibility,
+    language: (r.language || "Other") as RepoLanguage,
+    languageColor: languageColor(r.language),
+    stars: r.stats?.stars ?? 0,
+    forks: r.stats?.forks ?? 0,
+    openIssues: r.stats?.openIssues ?? 0,
+    openPRs: r.stats?.openPRs ?? 0,
+    lastUpdated: toRelativeTime(r.updatedAt),
+    isForked: r.isFork ?? false,
+    isPinned: r.isPinned ?? false,
+    topics: r.topics ?? [],
+    // ciStatus and aiReviews are not yet in backend — default for now
     ciStatus: "none",
     aiReviews: 0,
-  },
-];
+  };
+}
+
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
 export function useRepository(): UseRepositoryReturn {
+  const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("updated");
   const [visibilityFilter, setVisibilityFilter] = useState<"all" | RepoVisibility>("all");
-  const [pinnedIds, setPinnedIds] = useState<string[]>(["r1", "r2"]);
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 
-  const togglePin = (id: string) =>
+  const fetchRepos = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const token = typeof window !== "undefined"
+        ? localStorage.getItem("devflow_token")
+        : null;
+
+      if (!token) {
+        setError("Not authenticated");
+        setIsLoading(false);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/api/v1/repositories`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Request failed: ${res.status}`);
+      }
+
+      const json = await res.json();
+      const raw: APIRepository[] = json?.data?.repositories ?? [];
+      const mapped = raw.map(mapAPIRepo);
+      setRepositories(mapped);
+
+      // Seed pinnedIds from the isPinned flag returned by the DB
+      setPinnedIds(mapped.filter((r) => r.isPinned).map((r) => r.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load repositories");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRepos();
+  }, [fetchRepos]);
+
+  // togglePin — optimistically updates local state, then persists to backend
+  const togglePin = useCallback(async (id: string) => {
+    const repo = repositories.find((r) => r.id === id);
+    if (!repo) return;
+
+    const willBePinned = !pinnedIds.includes(id);
+
+    // Optimistic update
     setPinnedIds((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+      willBePinned ? [...prev, id] : prev.filter((p) => p !== id)
     );
 
+    try {
+      const token = typeof window !== "undefined"
+        ? localStorage.getItem("devflow_token")
+        : null;
+      if (!token) return;
+
+      const res = await fetch(`${API_BASE}/api/v1/repositories/${repo.slug}/pin`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ pinned: willBePinned }),
+      });
+
+      if (!res.ok) {
+        // Rollback on failure
+        setPinnedIds((prev) =>
+          willBePinned ? prev.filter((p) => p !== id) : [...prev, id]
+        );
+      } else {
+        // Update local repository list to reflect new isPinned value
+        setRepositories((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, isPinned: willBePinned } : r))
+        );
+      }
+    } catch {
+      // Rollback on network error
+      setPinnedIds((prev) =>
+        willBePinned ? prev.filter((p) => p !== id) : [...prev, id]
+      );
+    }
+  }, [repositories, pinnedIds]);
+
   const filtered = useMemo(() => {
-    let list = [...MOCK_REPOS];
+    let list = [...repositories];
 
     if (visibilityFilter !== "all") {
       list = list.filter((r) => r.visibility === visibilityFilter);
@@ -187,16 +245,18 @@ export function useRepository(): UseRepositoryReturn {
     list.sort((a, b) => {
       if (sortKey === "stars") return b.stars - a.stars;
       if (sortKey === "name") return a.name.localeCompare(b.name);
-      // "updated" — keep original order (already sorted by recency in mock data)
-      return 0;
+      return 0; // "updated" — server already returns sorted by updatedAt desc
     });
 
     return list;
-  }, [searchQuery, sortKey, visibilityFilter]);
+  }, [repositories, searchQuery, sortKey, visibilityFilter]);
 
   return {
-    repositories: MOCK_REPOS,
+    repositories,
     filtered,
+    isLoading,
+    error,
+    refetch: fetchRepos,
     searchQuery,
     setSearchQuery,
     sortKey,

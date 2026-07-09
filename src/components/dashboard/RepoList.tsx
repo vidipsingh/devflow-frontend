@@ -183,11 +183,11 @@ function Toolbar({
       <select
         value={visibilityFilter}
         onChange={(e) => setVisibilityFilter(e.target.value as "all" | "public" | "private")}
-        className="px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-[#a1a1aa] focus:outline-none focus:border-indigo-500/40 cursor-pointer appearance-none"
+        className="px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-[#a1a1aa] focus:outline-none focus:border-indigo-500/40 appearance-none cursor-pointer"
       >
-        <option value="all">All</option>
-        <option value="public">Public</option>
-        <option value="private">Private</option>
+        <button value="all" className="cursor-pointer">All</button>
+        <button value="public" className="cursor-pointer">Public</button>
+        <button value="private" className="cursor-pointer">Private</button>
       </select>
 
       {/* Sort */}
