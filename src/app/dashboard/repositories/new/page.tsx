@@ -4,344 +4,263 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  BookOpen,
-  Lock,
-  Globe,
-  GitBranch,
-  FileText,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-} from "lucide-react";
 import { useRepoActions } from "@/hooks/useRepoActions";
-
-
-// Field components
-
-
-function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
-  return (
-    <label htmlFor={htmlFor} className="block text-sm font-medium text-white/70 mb-2">
-      {children}
-    </label>
-  );
-}
-
-function FieldHint({ children }: { children: React.ReactNode }) {
-  return <p className="mt-1.5 text-xs text-white/35">{children}</p>;
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return (
-    <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
-      <AlertCircle size={11} /> {message}
-    </p>
-  );
-}
-
-
-// Visibility option
-
-
-function VisibilityOption({
-  value,
-  selected,
-  onSelect,
-}: {
-  value: "public" | "private";
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const isPublic = value === "public";
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`flex items-start gap-3 w-full rounded-xl border p-4 transition-all text-left cursor-pointer ${
-        selected
-          ? "border-indigo-500/60 bg-indigo-500/10"
-          : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
-      }`}
-    >
-      {/* Radio dot */}
-      <span
-        className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${
-          selected ? "border-indigo-500" : "border-white/30"
-        }`}
-      >
-        {selected && <span className="w-2 h-2 rounded-full bg-indigo-500" />}
-      </span>
-      {/* Icon */}
-      <span className={`flex-shrink-0 mt-0.5 ${isPublic ? "text-emerald-400" : "text-rose-400"}`}>
-        {isPublic ? <Globe size={16} /> : <Lock size={16} />}
-      </span>
-      {/* Text */}
-      <div>
-        <p className="text-sm font-semibold text-white capitalize">{value}</p>
-        <p className="text-xs text-white/40 mt-0.5 leading-relaxed">
-          {isPublic
-            ? "Anyone on DevFlow can see this repository."
-            : "Only you and collaborators can access this repository."}
-        </p>
-      </div>
-    </button>
-  );
-}
-
-
-// Page
-
 
 export default function NewRepositoryPage() {
   const router = useRouter();
-  const { createRepo, isSubmitting } = useRepoActions();
+  const { createRepo, isCreating, actionError } = useRepoActions();
 
-  // Form state
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [defaultBranch, setDefaultBranch] = useState("main");
   const [autoInit, setAutoInit] = useState(true);
+  const [nameError, setNameError] = useState("");
 
-  // UI state
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  // Validate repo name
+  const validateName = (v: string) => {
+    if (!v.trim()) return "Repository name is required";
+    if (!/^[a-zA-Z0-9._-]+$/.test(v)) return "Only letters, numbers, hyphens, underscores, and dots are allowed";
+    if (v.length > 100) return "Name must be 100 characters or less";
+    return "";
+  };
 
-  // Live slug preview
-  const slug = name
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
+  const handleNameChange = (v: string) => {
+    setName(v);
+    setNameError(validateName(v));
+  };
 
-  function validate() {
-    const e: Record<string, string> = {};
-    if (!name.trim()) e.name = "Repository name is required.";
-    else if (name.trim().length < 2) e.name = "Name must be at least 2 characters.";
-    else if (!/^[a-zA-Z0-9._-]+$/.test(name.trim()))
-      e.name = "Only letters, numbers, hyphens, dots, and underscores are allowed.";
-    if (!defaultBranch.trim()) e.defaultBranch = "Default branch name is required.";
-    return e;
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitError(null);
+    const err = validateName(name);
+    if (err) { setNameError(err); return; }
 
-    const errs = validate();
-    if (Object.keys(errs).length) {
-      setErrors(errs);
-      return;
-    }
-    setErrors({});
-
-    const { ok, error } = await createRepo({
+    const result = await createRepo({
       name: name.trim(),
       description: description.trim(),
       visibility,
-      defaultBranch: defaultBranch.trim(),
+      defaultBranch: defaultBranch.trim() || "main",
       autoInit,
     });
 
-    if (!ok) {
-      setSubmitError(error ?? "Something went wrong.");
-      return;
+    if (result) {
+      router.push(`/dashboard/repositories/${result.slug}`);
     }
-
-    setSuccess(true);
-    setTimeout(() => router.push("/dashboard/repositories"), 1200);
-  }
+  };
 
   return (
-    <div className="min-h-screen p-6 lg:p-8 max-w-2xl mx-auto">
-      {/* Back link */}
-      <Link
-        href="/dashboard/repositories"
-        className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-white/70 mb-8 transition-colors"
-      >
-        <ArrowLeft size={15} />
-        Back to repositories
-      </Link>
-
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center text-indigo-400">
-          <BookOpen size={20} />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-white">Create a new repository</h1>
-          <p className="text-sm text-white/40 mt-0.5">
-            A repository contains all your project files and revision history.
+    <div className="min-h-screen bg-[#0d1117] text-white">
+      <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
+        {/* Header */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-sm text-white/40 mb-4">
+            <Link href="/dashboard/repositories" className="hover:text-white transition-colors">
+              Repositories
+            </Link>
+            <span className="text-white/20">/</span>
+            <span className="text-white/70">New</span>
+          </div>
+          <h1 className="text-2xl font-bold text-white">Create a new repository</h1>
+          <p className="text-white/40 text-sm">
+            A repository contains all project files, including the revision history.
           </p>
         </div>
-      </div>
 
-      {/* Success banner */}
-      {success && (
-        <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 mb-6 text-sm text-emerald-400">
-          <CheckCircle2 size={16} />
-          Repository created! Redirecting…
-        </div>
-      )}
-
-      {/* Submit error */}
-      {submitError && (
-        <div className="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 mb-6 text-sm text-red-400">
-          <AlertCircle size={16} />
-          {submitError}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        {/* Name */}
-        <div>
-          <FieldLabel htmlFor="name">
-            Repository name <span className="text-red-400">*</span>
-          </FieldLabel>
-          <input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              setErrors((p) => ({ ...p, name: "" }));
-            }}
-            placeholder="my-awesome-project"
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all"
-          />
-          {slug && name && (
-            <p className="mt-1.5 text-xs text-white/35">
-              Slug: <span className="text-indigo-400">{slug}</span>
-            </p>
-          )}
-          <FieldError message={errors.name} />
-          <FieldHint>Great repository names are short and memorable.</FieldHint>
-        </div>
-
-        {/* Description */}
-        <div>
-          <FieldLabel htmlFor="description">
-            Description{" "}
-            <span className="text-white/30 font-normal">(optional)</span>
-          </FieldLabel>
-          <textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="A short description of your repository…"
-            rows={3}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all resize-none"
-          />
-        </div>
-
-        <hr className="border-white/8" />
-
-        {/* Visibility */}
-        <div>
-          <FieldLabel htmlFor="visibility">Visibility</FieldLabel>
-          <div className="flex flex-col gap-2">
-            <VisibilityOption
-              value="public"
-              selected={visibility === "public"}
-              onSelect={() => setVisibility("public")}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Name */}
+          <div className="space-y-1.5">
+            <label className="text-white/70 text-sm font-medium">
+              Repository name <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="my-awesome-project"
+              required
+              className={`w-full bg-[#161b22] border rounded-lg px-4 py-2.5 text-white/90 text-sm placeholder-white/20 focus:outline-none transition-colors ${
+                nameError
+                  ? "border-red-400/50 focus:border-red-400"
+                  : "border-white/10 focus:border-emerald-400/50"
+              }`}
             />
-            <VisibilityOption
-              value="private"
-              selected={visibility === "private"}
-              onSelect={() => setVisibility("private")}
+            {nameError ? (
+              <p className="text-red-400 text-xs">{nameError}</p>
+            ) : name && (
+              <p className="text-white/30 text-xs">
+                Your repository will be at{" "}
+                <span className="text-white/50 font-mono">
+                  devflow/{name.toLowerCase().replace(/\s+/g, "-")}
+                </span>
+              </p>
+            )}
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <label className="text-white/70 text-sm font-medium">
+              Description <span className="text-white/30 font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="A short description of what this project does"
+              className="w-full bg-[#161b22] border border-white/10 rounded-lg px-4 py-2.5 text-white/90 text-sm placeholder-white/20 focus:outline-none focus:border-emerald-400/50"
             />
           </div>
-        </div>
 
-        <hr className="border-white/8" />
+          {/* Divider */}
+          <div className="border-t border-white/5" />
 
-        {/* Default branch */}
-        <div>
-          <FieldLabel htmlFor="defaultBranch">
-            <span className="flex items-center gap-1.5">
-              <GitBranch size={14} />
-              Default branch
-            </span>
-          </FieldLabel>
-          <input
-            id="defaultBranch"
-            type="text"
-            value={defaultBranch}
-            onChange={(e) => {
-              setDefaultBranch(e.target.value);
-              setErrors((p) => ({ ...p, defaultBranch: "" }));
-            }}
-            placeholder="main"
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all"
-          />
-          <FieldError message={errors.defaultBranch} />
-        </div>
-
-        {/* Auto-init */}
-        <label className="flex items-start gap-3 cursor-pointer">
-          <div className="flex-shrink-0 mt-0.5">
-            <input
-              type="checkbox"
-              checked={autoInit}
-              onChange={(e) => setAutoInit(e.target.checked)}
-              className="sr-only"
-            />
-            <div
-              onClick={() => setAutoInit((p) => !p)}
-              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                autoInit
-                  ? "bg-indigo-600 border-indigo-600"
-                  : "border-white/30 bg-transparent"
-              }`}
-            >
-              {autoInit && (
-                <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
-                  <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
+          {/* Visibility */}
+          <div className="space-y-3">
+            <label className="text-white/70 text-sm font-medium">Visibility</label>
+            <div className="space-y-2">
+              {[
+                {
+                  value: "public" as const,
+                  label: "Public",
+                  desc: "Anyone on the internet can see this repository",
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                        d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ),
+                },
+                {
+                  value: "private" as const,
+                  label: "Private",
+                  desc: "Only you and collaborators you add can see this repository",
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  ),
+                },
+              ].map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-colors ${
+                    visibility === opt.value
+                      ? "border-emerald-400/40 bg-emerald-400/5"
+                      : "border-white/10 hover:border-white/20"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="visibility"
+                    value={opt.value}
+                    checked={visibility === opt.value}
+                    onChange={() => setVisibility(opt.value)}
+                    className="sr-only"
+                  />
+                  <span className={visibility === opt.value ? "text-emerald-400" : "text-white/30"}>
+                    {opt.icon}
+                  </span>
+                  <div>
+                    <p className={`text-sm font-medium ${visibility === opt.value ? "text-white" : "text-white/60"}`}>
+                      {opt.label}
+                    </p>
+                    <p className="text-white/30 text-xs mt-0.5">{opt.desc}</p>
+                  </div>
+                  <div className={`ml-auto w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                    visibility === opt.value ? "border-emerald-400" : "border-white/20"
+                  }`}>
+                    {visibility === opt.value && (
+                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                    )}
+                  </div>
+                </label>
+              ))}
             </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-white flex items-center gap-1.5">
-              <FileText size={14} className="text-white/50" />
-              Initialise this repository with a README
-            </p>
-            <p className="text-xs text-white/35 mt-0.5 leading-relaxed">
-              This will let you immediately clone the repository to your computer.
-            </p>
+
+          {/* Divider */}
+          <div className="border-t border-white/5" />
+
+          {/* Default branch */}
+          <div className="space-y-1.5">
+            <label className="text-white/70 text-sm font-medium">Default branch</label>
+            <input
+              type="text"
+              value={defaultBranch}
+              onChange={(e) => setDefaultBranch(e.target.value)}
+              placeholder="main"
+              className="w-full bg-[#161b22] border border-white/10 rounded-lg px-4 py-2.5 text-white/90 text-sm placeholder-white/20 focus:outline-none focus:border-emerald-400/50 max-w-xs"
+            />
           </div>
-        </label>
 
-        <hr className="border-white/8" />
+          {/* Auto init */}
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <div className="relative mt-0.5">
+              <input
+                type="checkbox"
+                checked={autoInit}
+                onChange={(e) => setAutoInit(e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                autoInit ? "bg-emerald-500 border-emerald-500" : "border-white/20 group-hover:border-white/40"
+              }`}>
+                {autoInit && (
+                  <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="text-white/70 text-sm font-medium">Initialize with a README</p>
+              <p className="text-white/30 text-xs mt-0.5">
+                This will let you immediately clone the repository
+              </p>
+            </div>
+          </label>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3 justify-end">
-          <Link
-            href="/dashboard/repositories"
-            className="px-5 py-2.5 rounded-xl text-sm font-medium text-white/50 hover:text-white/80 hover:bg-white/8 transition-all border border-white/10"
-          >
-            Cancel
-          </Link>
-          <button
-            type="submit"
-            disabled={isSubmitting || success}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors cursor-pointer"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 size={15} className="animate-spin" />
-                Creating…
-              </>
-            ) : (
-              "Create repository"
-            )}
-          </button>
-        </div>
-      </form>
+          {/* Global error */}
+          {actionError && (
+            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-lg px-4 py-3">
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {actionError}
+            </div>
+          )}
+
+          {/* Divider */}
+          <div className="border-t border-white/5" />
+
+          {/* Submit */}
+          <div className="flex items-center gap-4">
+            <button
+              type="submit"
+              disabled={isCreating || !!nameError || !name.trim()}
+              className="px-6 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors flex items-center gap-2"
+            >
+              {isCreating ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Creating…
+                </>
+              ) : (
+                "Create repository"
+              )}
+            </button>
+            <Link
+              href="/dashboard/repositories"
+              className="text-sm text-white/40 hover:text-white/70 transition-colors"
+            >
+              Cancel
+            </Link>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

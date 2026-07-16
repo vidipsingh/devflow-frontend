@@ -102,7 +102,7 @@ export default function DashboardPage() {
           ) : (
             <QuickActions user={user} />
           )}
-          <ActivityFeed activity={activity} />
+          <ActivityFeed />
         </div>
       </div>
     </div>

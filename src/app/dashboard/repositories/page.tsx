@@ -7,12 +7,13 @@ import { Plus, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 import { useRepositoriesPage } from "@/hooks/useRepositoriesPage";
 import { useRepoActions } from "@/hooks/useRepoActions";
 import type { Repository } from "@/hooks/useRepository";
+import type { UpdateRepoPayload } from "@/hooks/useRepoActions";
 import RepoStatsBar from "@/components/repositories/RepoStatsBar";
 import RepoToolbar from "@/components/repositories/RepoToolbar";
 import RepoSection from "@/components/repositories/RepoSection";
 import RepoEmptyState from "@/components/repositories/RepoEmptyState";
-import EditRepoModal from "@/components/repositories/EditRepoModal";
-import DeleteRepoModal from "@/components/repositories/DeleteRepoModal";
+import { EditRepoModal } from "@/components/repositories/EditRepoModal";
+import { DeleteRepoModal } from "@/components/repositories/DeleteRepoModal";
 
 
 // Loading skeleton
@@ -101,7 +102,7 @@ export default function RepositoriesPage() {
     refetch,
   } = useRepositoriesPage();
 
-  const { updateRepo, deleteRepo, isSubmitting } = useRepoActions();
+  const { updateRepo, deleteRepo, isUpdating, isDeleting, actionError, clearError } = useRepoActions();
 
   // Modal state
   const [editTarget, setEditTarget] = useState<Repository | null>(null);
@@ -111,23 +112,23 @@ export default function RepositoriesPage() {
   const hasSearch = searchQuery.trim().length > 0 || visibilityFilter !== "all";
 
   // Edit handler — calls API then refetches
-  async function handleSave(slug: string, payload: Parameters<typeof updateRepo>[1]) {
-    const result = await updateRepo(slug, payload);
-    if (result.ok) {
+  async function handleUpdate(slug: string, payload: UpdateRepoPayload) {
+    const ok = await updateRepo(slug, payload);
+    if (ok) {
       refetch();
       setEditTarget(null);
     }
-    return result;
+    return ok;
   }
 
   // Delete handler — calls API then refetches
   async function handleDelete(slug: string) {
-    const result = await deleteRepo(slug);
-    if (result.ok) {
+    const ok = await deleteRepo(slug);
+    if (ok) {
       refetch();
       setDeleteTarget(null);
     }
-    return result;
+    return ok;
   }
 
   return (
@@ -205,24 +206,24 @@ export default function RepositoriesPage() {
       )}
 
       {/* Edit modal */}
-      {editTarget && (
-        <EditRepoModal
-          repo={editTarget}
-          onClose={() => setEditTarget(null)}
-          onSave={handleSave}
-          isSaving={isSubmitting}
-        />
-      )}
+      <EditRepoModal
+        isOpen={!!editTarget}
+        repo={editTarget}
+        isUpdating={isUpdating}
+        error={actionError}
+        onUpdate={handleUpdate}
+        onClose={() => { setEditTarget(null); clearError(); }}
+      />
 
       {/* Delete modal */}
-      {deleteTarget && (
-        <DeleteRepoModal
-          repo={deleteTarget}
-          onClose={() => setDeleteTarget(null)}
-          onConfirm={handleDelete}
-          isDeleting={isSubmitting}
-        />
-      )}
+      <DeleteRepoModal
+        isOpen={!!deleteTarget}
+        repo={deleteTarget}
+        isDeleting={isDeleting}
+        error={actionError}
+        onDelete={handleDelete}
+        onClose={() => { setDeleteTarget(null); clearError(); }}
+      />
     </div>
   );
 }

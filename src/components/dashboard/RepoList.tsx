@@ -64,7 +64,7 @@ function RepoCard({
             </svg>
           )}
           <Link
-            href={`/dashboard/${repo.name}`}
+            href={`/dashboard/repositories/${repo.name}`}
             className="text-sm font-semibold text-white hover:text-indigo-300 transition-colors truncate"
           >
             {repo.name}

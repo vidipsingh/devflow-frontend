@@ -9,7 +9,7 @@ export default function HowItWorksSection() {
       title: "Create your repository",
       desc: "Push code with a familiar git remote workflow. DevFlow handles storage, indexing, and access control automatically.",
       code: `$ git remote add devflow \\
-    https://devflow.io/acme/api.git
+    https://devflow.io/acme/api.devflow
 $ git push devflow main
 
   ✓ Objects uploaded (42 objects)
