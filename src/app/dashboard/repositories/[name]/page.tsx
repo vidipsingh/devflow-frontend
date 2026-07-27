@@ -5,6 +5,7 @@ import { use, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useRepoDetail } from "@/hooks/useRepoDetail";
 import { UploadFileModal } from "@/components/repositories/UploadFileModal";
+import { useIssues, Issue, IssueLabel } from "@/hooks/useIssues";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 function getToken() {
@@ -112,6 +113,11 @@ const TABS = [
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
     </svg>
   )},
+  { id: "issues", label: "Issues", icon: (
+    <svg className="w-3.5 h-3.5 cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )},
   { id: "commits", label: "Commits", icon: (
     <svg className="w-3.5 h-3.5 cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -135,7 +141,22 @@ export default function RepositoryDetailPage({
   } = useRepoDetail(name);
 
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"code" | "commits">("code");
+  const [activeTab, setActiveTab] = useState<"code" | "issues" | "commits">("code");
+
+  // ── Issues inline state ───────────────────────────────────────────────────
+  const { issues, total: issuesTotal, loading: issuesLoading, error: issuesError, fetchIssues } = useIssues(name);
+  const [issueTab, setIssueTab] = useState<"open" | "closed">("open");
+  const [issuePage, setIssuePage] = useState(1);
+  const ISSUES_LIMIT = 20;
+
+  const loadIssues = useCallback(
+    (state: "open" | "closed", p: number) => fetchIssues(state, p, ISSUES_LIMIT),
+    [fetchIssues]
+  );
+
+  useEffect(() => {
+    if (activeTab === "issues") loadIssues(issueTab, issuePage);
+  }, [activeTab, issueTab, issuePage, loadIssues]);
   const [starCount, setStarCount] = useState<number | null>(null);
   const [starred, setStarred] = useState(false);
   const [isStarring, setIsStarring] = useState(false);
@@ -323,11 +344,11 @@ export default function RepositoryDetailPage({
         </div>
 
         {/* ── Tab bar ────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-1 border-b border-white/[0.08] cursor-pointer">
+        <div className="flex items-center gap-1 border-b border-white/[0.08]">
           {TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setActiveTab(tab.id as "code" | "issues" | "commits")}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-px cursor-pointer ${
                 activeTab === tab.id
                   ? "border-indigo-400 text-white"
@@ -341,6 +362,13 @@ export default function RepositoryDetailPage({
                   activeTab === tab.id ? "bg-indigo-500/20 text-indigo-300" : "bg-white/[0.06] text-white/30"
                 }`}>
                   {commits.length}
+                </span>
+              )}
+              {tab.id === "issues" && issuesTotal > 0 && (
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  activeTab === tab.id ? "bg-indigo-500/20 text-indigo-300" : "bg-white/[0.06] text-white/30"
+                }`}>
+                  {issuesTotal}
                 </span>
               )}
             </button>
@@ -547,6 +575,191 @@ export default function RepositoryDetailPage({
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/*  ISSUES TAB                                                      */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {activeTab === "issues" && (
+          <div className="space-y-4">
+            {/* Header row */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="text-sm font-medium text-white/60">
+                {issuesTotal > 0 ? `${issuesTotal} ${issueTab} issue${issuesTotal !== 1 ? "s" : ""}` : "Issues"}
+              </h2>
+              <Link
+                href={`/dashboard/repositories/${name}/issues/new`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-medium transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New issue
+              </Link>
+            </div>
+
+            <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#111117]">
+              {/* Open / Closed tabs */}
+              <div className="flex items-center gap-1 px-4 py-2 border-b border-white/[0.06] bg-white/[0.02]">
+                <button
+                  onClick={() => { setIssueTab("open"); setIssuePage(1); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    issueTab === "open" ? "text-white bg-white/[0.07]" : "text-white/40 hover:text-white/70"
+                  }`}
+                >
+                  <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {issueTab === "open" ? `${issuesTotal} Open` : "Open"}
+                </button>
+                <button
+                  onClick={() => { setIssueTab("closed"); setIssuePage(1); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    issueTab === "closed" ? "text-white bg-white/[0.07]" : "text-white/40 hover:text-white/70"
+                  }`}
+                >
+                  <svg className="w-3 h-3 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {issueTab === "closed" ? `${issuesTotal} Closed` : "Closed"}
+                </button>
+              </div>
+
+              {/* List body */}
+              {issuesLoading ? (
+                <div className="flex flex-col">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="flex items-start gap-3 px-4 py-3 border-b border-white/[0.05] last:border-0 animate-pulse">
+                      <div className="w-4 h-4 mt-0.5 rounded-full bg-white/[0.06] shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3 bg-white/[0.06] rounded w-2/3" />
+                        <div className="h-2.5 bg-white/[0.04] rounded w-1/3" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : issuesError ? (
+                <div className="flex items-center justify-center py-12 text-red-400 text-sm gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {issuesError}
+                </div>
+              ) : issues.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-white/50 text-sm font-medium">No {issueTab} issues</p>
+                    <p className="text-white/25 text-xs mt-1">
+                      {issueTab === "open" ? "Nothing to track here yet." : "No issues closed yet."}
+                    </p>
+                  </div>
+                  {issueTab === "open" && (
+                    <Link
+                      href={`/dashboard/repositories/${name}/issues/new`}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                    >
+                      Open a new issue →
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {issues.map((issue: Issue) => (
+                    <div
+                      key={issue.id}
+                      className="flex items-start gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors border-b border-white/[0.05] last:border-0"
+                    >
+                      {/* state icon */}
+                      <div className="mt-0.5 shrink-0">
+                        {issue.state === "open" ? (
+                          <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
+                      </div>
+
+                      {/* content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-2 flex-wrap">
+                          <Link
+                            href={`/dashboard/repositories/${name}/issues/${issue.number}`}
+                            className="text-sm font-medium text-white/85 hover:text-indigo-300 transition-colors leading-snug"
+                          >
+                            {issue.title}
+                          </Link>
+                          {issue.isPinned && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20">📌</span>
+                          )}
+                          {issue.isLocked && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs text-red-400 bg-red-400/10 border border-red-400/20">🔒</span>
+                          )}
+                          {issue.labels.map((l: IssueLabel) => {
+                            const bg = l.color ? (l.color.startsWith("#") ? l.color : "#" + l.color) : "#6366f1";
+                            return (
+                              <span
+                                key={l.name}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium"
+                                style={{ backgroundColor: bg + "33", color: bg, border: `1px solid ${bg}55` }}
+                              >
+                                {l.name}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        <p className="text-white/30 text-xs mt-0.5">
+                          #{issue.number} · opened by <span className="text-white/45">{issue.authorName}</span>
+                          {issue.milestone && <span className="ml-1.5 text-violet-400">· {issue.milestone}</span>}
+                        </p>
+                      </div>
+
+                      {/* comment count */}
+                      {issue.commentCount > 0 && (
+                        <div className="flex items-center gap-1 text-white/25 text-xs shrink-0 mt-0.5">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                          {issue.commentCount}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Pagination */}
+                  {Math.ceil(issuesTotal / ISSUES_LIMIT) > 1 && (
+                    <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-white/[0.06]">
+                      <button
+                        onClick={() => setIssuePage((p) => Math.max(1, p - 1))}
+                        disabled={issuePage === 1}
+                        className="px-3 py-1 rounded-lg border border-white/[0.08] text-white/40 text-xs hover:text-white disabled:opacity-30 transition-colors"
+                      >
+                        ← Prev
+                      </button>
+                      <span className="text-white/25 text-xs">
+                        {issuePage} / {Math.ceil(issuesTotal / ISSUES_LIMIT)}
+                      </span>
+                      <button
+                        onClick={() => setIssuePage((p) => Math.min(Math.ceil(issuesTotal / ISSUES_LIMIT), p + 1))}
+                        disabled={issuePage >= Math.ceil(issuesTotal / ISSUES_LIMIT)}
+                        className="px-3 py-1 rounded-lg border border-white/[0.08] text-white/40 text-xs hover:text-white disabled:opacity-30 transition-colors"
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
 
