@@ -237,7 +237,7 @@ export default function GlobalIssuesPage() {
           <div className="flex items-center gap-1 px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
             <button
               onClick={() => { setTab("open"); setPage(1); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
                 tab === "open" ? "text-white bg-white/[0.07]" : "text-white/40 hover:text-white/70"
               }`}
             >
@@ -248,7 +248,7 @@ export default function GlobalIssuesPage() {
             </button>
             <button
               onClick={() => { setTab("closed"); setPage(1); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
                 tab === "closed" ? "text-white bg-white/[0.07]" : "text-white/40 hover:text-white/70"
               }`}
             >

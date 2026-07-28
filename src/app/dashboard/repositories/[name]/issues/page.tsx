@@ -37,7 +37,7 @@ function IssueRow({ issue, repoName }: { issue: Issue; repoName: string }) {
   return (
     <div className="flex items-start gap-3 px-4 py-3.5 hover:bg-white/[0.02] transition-colors border-b border-white/[0.06] last:border-0">
       {/* State icon */}
-      <div className="mt-0.5 shrink-0">
+      <div className="mt-0.5 shrink-0 cursor-pointer">
         {issue.state === "open" ? (
           <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -161,7 +161,7 @@ export default function IssuesPage({ params }: { params: Promise<{ name: string 
           <div className="flex items-center gap-1 px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
             <button
               onClick={() => { setTab("open"); setPage(1); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
                 tab === "open"
                   ? "text-white bg-white/[0.07]"
                   : "text-white/40 hover:text-white/70"

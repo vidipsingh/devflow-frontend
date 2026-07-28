@@ -154,9 +154,10 @@ export default function RepositoryDetailPage({
     [fetchIssues]
   );
 
+  // Load on mount for the count badge, and whenever tab/filter/page changes
   useEffect(() => {
-    if (activeTab === "issues") loadIssues(issueTab, issuePage);
-  }, [activeTab, issueTab, issuePage, loadIssues]);
+    loadIssues(issueTab, issuePage);
+  }, [issueTab, issuePage, loadIssues]);
   const [starCount, setStarCount] = useState<number | null>(null);
   const [starred, setStarred] = useState(false);
   const [isStarring, setIsStarring] = useState(false);
@@ -604,7 +605,7 @@ export default function RepositoryDetailPage({
               <div className="flex items-center gap-1 px-4 py-2 border-b border-white/[0.06] bg-white/[0.02]">
                 <button
                   onClick={() => { setIssueTab("open"); setIssuePage(1); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                     issueTab === "open" ? "text-white bg-white/[0.07]" : "text-white/40 hover:text-white/70"
                   }`}
                 >
@@ -615,7 +616,7 @@ export default function RepositoryDetailPage({
                 </button>
                 <button
                   onClick={() => { setIssueTab("closed"); setIssuePage(1); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                     issueTab === "closed" ? "text-white bg-white/[0.07]" : "text-white/40 hover:text-white/70"
                   }`}
                 >

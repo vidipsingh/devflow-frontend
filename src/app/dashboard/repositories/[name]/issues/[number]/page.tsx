@@ -65,7 +65,6 @@ function MarkdownRenderer({ content }: { content: string }) {
 }
 
 // ─── Reactions bar ────────────────────────────────────────────────────────────
-// Only renders reactions that have count > 0, plus a small "+ Add" picker
 const REACTION_META: { key: keyof IssueReactions; emoji: string; label: string }[] = [
   { key: "thumbsUp",   emoji: "👍", label: "+1"       },
   { key: "thumbsDown", emoji: "👎", label: "-1"       },
@@ -77,29 +76,62 @@ const REACTION_META: { key: keyof IssueReactions; emoji: string; label: string }
   { key: "eyes",       emoji: "👀", label: "eyes"     },
 ];
 
+// Persist per-user reactions in localStorage so they survive refresh
+function getStoredReactions(issueId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(`reactions_${issueId}`);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch { return new Set(); }
+}
+function saveStoredReactions(issueId: string, set: Set<string>) {
+  try { localStorage.setItem(`reactions_${issueId}`, JSON.stringify([...set])); } catch {/* */}
+}
+
 function ReactionsBar({
+  issueId,
   reactions,
   onReact,
 }: {
+  issueId: string;
   reactions: IssueReactions;
-  onReact: (key: keyof IssueReactions) => void;
+  onReact: (key: keyof IssueReactions, add: boolean) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
-
+  // myReactions: set of reaction keys this user has already used
+  const [myReactions, setMyReactions] = useState<Set<string>>(() => getStoredReactions(issueId));
   const hasAny = REACTION_META.some(({ key }) => reactions[key] > 0);
+
+  const handleToggle = (key: keyof IssueReactions) => {
+    const already = myReactions.has(key);
+    const next = new Set(myReactions);
+    if (already) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    setMyReactions(next);
+    saveStoredReactions(issueId, next);
+    onReact(key, !already); // add=true if not already reacted, add=false to remove
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3 pt-2">
-      {/* Only render reactions that have a positive count */}
+      {/* Render pills for reactions with count > 0 */}
       {REACTION_META.map(({ key, emoji, label }) => {
         const count = reactions[key];
-        if (count === 0) return null;
+        const reacted = myReactions.has(key);
+        if (count === 0 && !reacted) return null;
         return (
           <button
             key={key}
-            onClick={() => onReact(key)}
-            title={`${label} · ${count}`}
-            className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-indigo-500/10 border border-indigo-500/25 hover:bg-indigo-500/20 hover:border-indigo-500/40 transition-colors text-white/70 hover:text-white"
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleToggle(key); }}
+            title={reacted ? `Remove ${label} reaction` : `${label} · ${count}`}
+            className={`cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-colors ${
+              reacted
+                ? "bg-indigo-500/25 border-indigo-400/50 text-indigo-300 hover:bg-indigo-500/15 hover:border-indigo-400/30"
+                : "bg-white/[0.04] border-white/[0.10] text-white/60 hover:bg-indigo-500/15 hover:border-indigo-400/40 hover:text-white/80"
+            }`}
           >
             <span>{emoji}</span>
             <span className="font-medium">{count}</span>
@@ -111,7 +143,7 @@ function ReactionsBar({
       <div className="relative">
         <button
           type="button"
-          onClick={() => setPickerOpen((v) => !v)}
+          onClick={(e) => { e.stopPropagation(); setPickerOpen((v) => !v); }}
           title="Add reaction"
           className="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-white/[0.03] border border-white/[0.07] hover:bg-white/[0.07] hover:border-white/[0.14] transition-colors text-white/35 hover:text-white/60"
         >
@@ -122,23 +154,32 @@ function ReactionsBar({
           <span>React</span>
         </button>
         {pickerOpen && (
-          <div className="absolute bottom-full left-0 mb-2 flex flex-wrap gap-0.5 p-2 bg-[#16162a] border border-white/[0.10] rounded-xl shadow-2xl z-20 w-48">
-            {REACTION_META.map(({ key, emoji, label }) => (
-              <button
-                key={key}
-                onClick={() => { onReact(key); setPickerOpen(false); }}
-                title={label}
-                className="cursor-pointer flex items-center justify-center w-9 h-9 rounded-lg hover:bg-white/[0.08] transition-colors text-lg"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setPickerOpen(false)} />
+            <div className="absolute bottom-full left-0 mb-2 flex flex-wrap gap-0.5 p-2 bg-[#16162a] border border-white/[0.10] rounded-xl shadow-2xl z-20 w-48">
+              {REACTION_META.map(({ key, emoji, label }) => {
+                const reacted = myReactions.has(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleToggle(key); setPickerOpen(false); }}
+                    title={reacted ? `Remove ${label}` : `Add ${label}`}
+                    className={`cursor-pointer flex items-center justify-center w-9 h-9 rounded-lg transition-colors text-lg ${
+                      reacted ? "bg-indigo-500/25 ring-1 ring-indigo-400/40" : "hover:bg-white/[0.08]"
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
       {!hasAny && (
-        <span className="text-white/20 text-xs">No reactions yet</span>
+        <span className="text-white/20 text-xs italic">No reactions yet — be the first!</span>
       )}
     </div>
   );
@@ -402,10 +443,10 @@ export default function IssueDetailPage({
   };
 
   const handleAddComment = async (body: string) => {
-    const comment = await addComment(issueNumber, body);
-    if (comment && issue) {
-      setIssue({ ...issue, comments: [...issue.comments, comment], commentCount: issue.commentCount + 1 });
-    }
+    await addComment(issueNumber, body);
+    // Reload the full issue from server to avoid duplicate/stale comment state
+    const fresh = await fetchIssue(issueNumber);
+    if (fresh) setIssue(fresh);
   };
 
   const handleEditComment = async (commentId: string, body: string) => {
@@ -431,9 +472,11 @@ export default function IssueDetailPage({
     }
   };
 
-  const handleReact = async (key: keyof IssueReactions) => {
-    const updated = await reactToIssue(issueNumber, key, true);
-    if (updated && issue) setIssue({ ...issue, reactions: updated });
+  const handleReact = async (key: keyof IssueReactions, add: boolean) => {
+    await reactToIssue(issueNumber, key, add);
+    // Reload full issue so reactions are authoritative from the server
+    const fresh = await fetchIssue(issueNumber);
+    if (fresh) setIssue(fresh);
   };
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -633,7 +676,7 @@ export default function IssueDetailPage({
               </div>
 
               {/* Reactions */}
-              <ReactionsBar reactions={issue.reactions} onReact={handleReact} />
+              <ReactionsBar issueId={issue.id} reactions={issue.reactions} onReact={handleReact} />
             </div>
 
             {/* ── Comment thread ──────────────────────────────────────── */}
