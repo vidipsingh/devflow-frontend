@@ -39,6 +39,25 @@ export interface PRComment {
   updatedAt: string;
 }
 
+export interface AISuggestion {
+  filePath: string;
+  lineStart: number;
+  lineEnd: number;
+  severity: "info" | "warning" | "critical";
+  category: string;
+  message: string;
+  suggestion: string;
+}
+
+export interface AIReview {
+  status: "pending" | "done" | "error" | "skipped";
+  summary: string;
+  suggestions: AISuggestion[];
+  model: string;
+  reviewedAt: string | null;
+  errorMsg: string;
+}
+
 export interface PullRequest {
   id: string;
   number: number;
@@ -60,6 +79,7 @@ export interface PullRequest {
   changedFiles: string[];
   isDraft: boolean;
   isMergeable: boolean;
+  aiReview: AIReview | null;
   mergedAt: string | null;
   mergedBy: string | null;
   closedAt: string | null;
@@ -312,6 +332,29 @@ export function usePullRequests(repoSlug: string) {
     [repoSlug]
   );
 
+  // ── Trigger AI Review ─────────────────────────────────────────────────────
+  const triggerAIReview = useCallback(
+    async (number: number): Promise<boolean> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${number}/ai-review`,
+          { method: "POST", headers: authHeaders() }
+        );
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error ?? "Failed to trigger AI review");
+        return true;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return false;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [repoSlug]
+  );
+
   return {
     prs,
     total,
@@ -328,6 +371,7 @@ export function usePullRequests(repoSlug: string) {
     addComment,
     editComment,
     deleteComment,
+    triggerAIReview,
     setActionError,
   };
 }

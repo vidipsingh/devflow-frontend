@@ -1,10 +1,20 @@
 
 "use client";
 
-import { use, useState, useEffect, useCallback } from "react";
+import { use, useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { usePullRequests, PullRequest, PRComment, PRLabel } from "@/hooks/usePullRequests";
+import { usePullRequests, PullRequest, PRComment, AIReview, AISuggestion } from "@/hooks/usePullRequests";
+
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
+
+function getToken() {
+  try { return typeof window !== "undefined" ? localStorage.getItem("devflow_token") : null; }
+  catch { return null; }
+}
+function authHeaders(): HeadersInit {
+  const t = getToken();
+  return t ? { "Content-Type": "application/json", Authorization: `Bearer ${t}` } : { "Content-Type": "application/json" };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string) {
@@ -21,154 +31,357 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(mo / 12)}y ago`;
 }
 
-function LabelPill({ label }: { label: PRLabel }) {
-  const bg = `#${label.color.replace("#", "")}`;
+function MarkdownRenderer({ content }: { content: string }) {
+  if (!content?.trim()) return <p className="text-white/30 text-sm italic">No description provided.</p>;
   return (
-    <span
-      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-      style={{ backgroundColor: bg + "33", color: bg, border: `1px solid ${bg}55` }}
-    >
-      {label.name}
+    <div className="space-y-1.5 text-sm text-white/70 leading-relaxed">
+      {content.split("\n").map((line, i) => {
+        if (line.startsWith("# ")) return <h1 key={i} className="text-xl font-bold text-white mt-3 mb-1">{line.slice(2)}</h1>;
+        if (line.startsWith("## ")) return <h2 key={i} className="text-lg font-semibold text-white mt-2 mb-1">{line.slice(3)}</h2>;
+        if (line.startsWith("### ")) return <h3 key={i} className="text-base font-medium text-white mt-2">{line.slice(4)}</h3>;
+        if (line.startsWith("- ") || line.startsWith("* ")) return <li key={i} className="ml-4 list-disc">{line.slice(2)}</li>;
+        if (line.startsWith("> ")) return <blockquote key={i} className="border-l-2 border-indigo-400/50 pl-3 text-white/45 italic">{line.slice(2)}</blockquote>;
+        if (line.trim() === "") return <div key={i} className="h-1.5" />;
+        return <p key={i}>{line}</p>;
+      })}
+    </div>
+  );
+}
+
+// ─── Severity badge ───────────────────────────────────────────────────────────
+function SeverityBadge({ severity }: { severity: AISuggestion["severity"] }) {
+  const map = {
+    critical: "bg-red-500/15 text-red-400 border-red-500/25",
+    warning:  "bg-amber-500/15 text-amber-400 border-amber-500/25",
+    info:     "bg-sky-500/15 text-sky-400 border-sky-500/25",
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${map[severity] ?? map.info}`}>
+      {severity === "critical" && "⚠"}
+      {severity === "warning" && "◆"}
+      {severity === "info" && "ℹ"}
+      {severity}
     </span>
   );
 }
 
-function PRStateBadge({ state }: { state: PullRequest["state"] }) {
-  if (state === "merged") {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-violet-500/15 text-violet-300 border border-violet-500/25">
-        <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0 0 .005L5 3.25Z" />
-        </svg>
-        Merged
-      </span>
-    );
-  }
-  if (state === "closed") {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-red-500/15 text-red-300 border border-red-500/25">
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-        Closed
-      </span>
-    );
-  }
+function CategoryBadge({ category }: { category: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
-      <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
-      </svg>
-      Open
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-white/[0.06] text-white/40 border border-white/[0.08]">
+      {category}
     </span>
   );
 }
 
-// ─── Comment card ─────────────────────────────────────────────────────────────
-function CommentCard({
-  comment,
-  onEdit,
-  onDelete,
+// ─── AI Suggestion card ───────────────────────────────────────────────────────
+function SuggestionCard({ s, index }: { s: AISuggestion; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className={`rounded-xl border transition-all ${
+      s.severity === "critical" ? "border-red-500/20 bg-red-500/[0.04]"
+      : s.severity === "warning" ? "border-amber-500/20 bg-amber-500/[0.04]"
+      : "border-sky-500/15 bg-sky-500/[0.03]"
+    }`}>
+      <button
+        className="w-full text-left px-4 py-3 flex items-start gap-3 cursor-pointer"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="text-white/20 text-xs font-mono mt-0.5 shrink-0">#{index + 1}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <SeverityBadge severity={s.severity} />
+            <CategoryBadge category={s.category} />
+            <span className="text-white/30 text-xs font-mono">{s.filePath}{s.lineStart ? `:${s.lineStart}` : ""}{s.lineEnd && s.lineEnd !== s.lineStart ? `–${s.lineEnd}` : ""}</span>
+          </div>
+          <p className="text-sm text-white/75 font-medium leading-snug">{s.message}</p>
+        </div>
+        <svg
+          className={`w-4 h-4 text-white/25 shrink-0 mt-0.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-4 pt-0 border-t border-white/[0.06] mt-0">
+          <div className="mt-3 space-y-3">
+            <div>
+              <p className="text-xs text-white/35 font-medium uppercase tracking-wide mb-1.5">Suggested fix</p>
+              <div className="bg-[#0a0a0f] rounded-lg border border-white/[0.06] px-3 py-2.5">
+                <p className="text-sm text-emerald-300/80 font-mono leading-relaxed whitespace-pre-wrap">{s.suggestion}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── File suggestions (grouped) ──────────────────────────────────────────────
+function FileSuggestionGroup({ filePath, suggestions }: { filePath: string; suggestions: AISuggestion[] }) {
+  const [open, setOpen] = useState(true);
+  const critCount = suggestions.filter(s => s.severity === "critical").length;
+  const warnCount = suggestions.filter(s => s.severity === "warning").length;
+  return (
+    <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0d14]">
+      <button
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors cursor-pointer"
+        onClick={() => setOpen(!open)}
+      >
+        <svg className="w-4 h-4 text-white/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span className="flex-1 text-sm font-mono text-white/60 text-left">{filePath}</span>
+        <div className="flex items-center gap-1.5">
+          {critCount > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 font-semibold">{critCount} critical</span>}
+          {warnCount > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-semibold">{warnCount} warning</span>}
+          {suggestions.length - critCount - warnCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 font-semibold">{suggestions.length - critCount - warnCount} info</span>
+          )}
+        </div>
+        <svg
+          className={`w-4 h-4 text-white/20 transition-transform shrink-0 ml-1 ${open ? "rotate-180" : ""}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="border-t border-white/[0.06] px-3 py-3 space-y-2">
+          {suggestions.map((s, i) => (
+            <SuggestionCard key={i} s={s} index={i} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── AI Review Panel ──────────────────────────────────────────────────────────
+function AIReviewPanel({
+  review, repoName, prNumber, onRetrigger, retriggering,
+}: {
+  review: AIReview | null;
+  repoName: string;
+  prNumber: number;
+  onRetrigger: () => void;
+  retriggering: boolean;
+}) {
+  // Group suggestions by file
+  const grouped: Record<string, AISuggestion[]> = {};
+  if (review?.suggestions) {
+    for (const s of review.suggestions) {
+      if (!grouped[s.filePath]) grouped[s.filePath] = [];
+      grouped[s.filePath].push(s);
+    }
+  }
+  const fileList = Object.keys(grouped);
+
+  const totalSugg = review?.suggestions?.length ?? 0;
+  const critCount = review?.suggestions?.filter(s => s.severity === "critical").length ?? 0;
+  const warnCount = review?.suggestions?.filter(s => s.severity === "warning").length ?? 0;
+
+  // pending state
+  if (!review || review.status === "pending") {
+    return (
+      <div className="border border-indigo-500/20 rounded-2xl bg-indigo-500/[0.04] p-5">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center shrink-0">
+            <svg className="w-4 h-4 text-indigo-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-white/80">AI Review in progress…</p>
+            <p className="text-xs text-white/35 mt-0.5">Gemini is analysing the changed files. This usually takes 10–30s.</p>
+          </div>
+        </div>
+        <div className="flex gap-2 mt-1">
+          <div className="h-2 flex-1 rounded-full bg-white/[0.05] overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-indigo-500/60 to-violet-500/60 rounded-full animate-pulse w-2/3" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // error / skipped
+  if (review.status === "error" || review.status === "skipped") {
+    return (
+      <div className={`border rounded-2xl p-5 ${review.status === "error" ? "border-red-500/20 bg-red-500/[0.04]" : "border-white/[0.08] bg-white/[0.02]"}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${review.status === "error" ? "bg-red-500/15 border border-red-500/20" : "bg-white/[0.06] border border-white/[0.08]"}`}>
+              {review.status === "error" ? (
+                <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white/80">
+                {review.status === "error" ? "AI Review failed" : "AI Review skipped"}
+              </p>
+              {review.errorMsg && <p className="text-xs text-red-400/70 mt-0.5">{review.errorMsg}</p>}
+              {review.summary && <p className="text-xs text-white/40 mt-0.5">{review.summary}</p>}
+            </div>
+          </div>
+          <button
+            onClick={onRetrigger}
+            disabled={retriggering}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.06] hover:bg-white/[0.10] border border-white/[0.10] text-white/60 hover:text-white/80 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <svg className={`w-3 h-3 ${retriggering ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {retriggering ? "Triggering…" : "Re-run"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // done
+  return (
+    <div className="space-y-4">
+      {/* Header card */}
+      <div className="border border-indigo-500/20 rounded-2xl bg-indigo-500/[0.04] p-5">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 border border-indigo-500/25 flex items-center justify-center shrink-0 mt-0.5">
+              <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-semibold text-white/85">AI Code Review</p>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-medium">Done</span>
+                {review.model && <span className="text-xs text-white/25 font-mono">{review.model}</span>}
+              </div>
+              {review.summary && <p className="text-sm text-white/55 mt-1.5 leading-relaxed">{review.summary}</p>}
+              {review.reviewedAt && <p className="text-xs text-white/25 mt-1">{timeAgo(review.reviewedAt)}</p>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Stats */}
+            <div className="flex items-center gap-2 text-xs">
+              {critCount > 0 && (
+                <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 font-semibold">
+                  <span>⚠</span>{critCount} critical
+                </span>
+              )}
+              {warnCount > 0 && (
+                <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
+                  <span>◆</span>{warnCount} warning
+                </span>
+              )}
+              {totalSugg === 0 && (
+                <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                  ✓ No issues
+                </span>
+              )}
+            </div>
+            <button
+              onClick={onRetrigger}
+              disabled={retriggering}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.09] text-white/50 hover:text-white/70 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <svg className={`w-3 h-3 ${retriggering ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {retriggering ? "Triggering…" : "Re-run"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Suggestions grouped by file */}
+      {fileList.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs font-medium text-white/30 uppercase tracking-wider px-0.5">
+            {totalSugg} suggestion{totalSugg !== 1 ? "s" : ""} across {fileList.length} file{fileList.length !== 1 ? "s" : ""}
+          </p>
+          {fileList.map((fp) => (
+            <FileSuggestionGroup key={fp} filePath={fp} suggestions={grouped[fp]} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Comment bubble ───────────────────────────────────────────────────────────
+function CommentBubble({
+  comment, currentUser, onEdit, onDelete,
 }: {
   comment: PRComment;
+  currentUser: string;
   onEdit: (id: string, body: string) => void;
   onDelete: (id: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [editBody, setEditBody] = useState(comment.body);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [draft, setDraft] = useState(comment.body);
+  const isOwn = comment.authorName === currentUser;
 
-  function submitEdit() {
-    if (!editBody.trim()) return;
-    onEdit(comment.id, editBody.trim());
+  function submit() {
+    if (draft.trim() === "" || draft === comment.body) { setEditing(false); return; }
+    onEdit(comment.id, draft.trim());
     setEditing(false);
   }
 
   return (
-    <div className="bg-[#0d0d14] border border-white/[0.07] rounded-2xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-white/[0.015]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
-            {comment.authorName?.[0]?.toUpperCase() ?? "?"}
-          </div>
-          <span className="text-sm font-medium text-white/75">{comment.authorName}</span>
+    <div className="flex gap-3">
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500/30 to-violet-500/30 border border-white/[0.08] flex items-center justify-center text-white/60 text-xs font-semibold shrink-0">
+        {comment.authorName?.[0]?.toUpperCase() ?? "?"}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          <span className="text-sm font-semibold text-white/75">{comment.authorName}</span>
           {comment.filePath && (
-            <span className="text-xs text-white/30 font-mono">
-              {comment.filePath}{comment.lineNumber > 0 ? `:${comment.lineNumber}` : ""}
+            <span className="text-xs font-mono text-white/30 bg-white/[0.04] px-1.5 py-0.5 rounded">
+              {comment.filePath}{comment.lineNumber ? `:${comment.lineNumber}` : ""}
             </span>
           )}
-          <span className="text-white/25 text-xs">{timeAgo(comment.createdAt)}</span>
-          {comment.isEdited && (
-            <span className="text-white/20 text-xs italic">edited</span>
-          )}
+          <span className="text-xs text-white/25">{timeAgo(comment.createdAt)}</span>
+          {comment.isEdited && <span className="text-[10px] text-white/20 italic">edited</span>}
         </div>
-
-        <div className="relative">
-          <button
-            onClick={() => setMenuOpen((o) => !o)}
-            className="p-1 rounded-md text-white/25 hover:text-white/60 hover:bg-white/[0.05] transition-colors cursor-pointer"
-          >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-            </svg>
-          </button>
-          {menuOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 top-full mt-1 z-20 w-36 rounded-xl border border-white/[0.08] bg-[#12121a] shadow-2xl py-1 overflow-hidden">
-                <button
-                  onClick={() => { setEditing(true); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/60 hover:bg-white/[0.04] hover:text-white transition-colors cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Edit
-                </button>
-                <button
-                  onClick={() => { onDelete(comment.id); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400/70 hover:bg-red-500/[0.06] hover:text-red-400 transition-colors cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Delete
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="px-4 py-4">
         {editing ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             <textarea
-              value={editBody}
-              onChange={(e) => setEditBody(e.target.value)}
-              rows={4}
-              className="w-full bg-[#111117] border border-white/[0.08] rounded-xl px-3 py-2.5 text-white/80 text-sm focus:outline-none focus:border-indigo-400/40 resize-none"
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              className="w-full bg-[#0a0a0f] border border-indigo-400/30 rounded-lg px-3 py-2 text-sm text-white/80 resize-none focus:outline-none focus:border-indigo-400/50 min-h-[80px]"
             />
             <div className="flex gap-2">
-              <button
-                onClick={submitEdit}
-                disabled={!editBody.trim()}
-                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-medium transition-colors cursor-pointer"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => { setEditing(false); setEditBody(comment.body); }}
-                className="px-3 py-1.5 rounded-lg border border-white/[0.08] text-white/40 text-xs hover:text-white transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
+              <button onClick={submit} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-500 hover:bg-indigo-400 text-white cursor-pointer transition-colors">Save</button>
+              <button onClick={() => setEditing(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.06] hover:bg-white/[0.10] text-white/50 cursor-pointer transition-colors">Cancel</button>
             </div>
           </div>
         ) : (
-          <p className="text-white/70 text-sm leading-relaxed whitespace-pre-wrap">{comment.body}</p>
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 group relative">
+            <MarkdownRenderer content={comment.body} />
+            {isOwn && (
+              <div className="absolute top-2 right-2 hidden group-hover:flex items-center gap-1">
+                <button onClick={() => { setDraft(comment.body); setEditing(true); }} className="p-1 rounded hover:bg-white/[0.08] text-white/30 hover:text-white/60 transition-colors cursor-pointer">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button onClick={() => onDelete(comment.id)} className="p-1 rounded hover:bg-red-500/10 text-white/30 hover:text-red-400 transition-colors cursor-pointer">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -176,592 +389,483 @@ function CommentCard({
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default function PRDetailPage({
-  params,
-}: {
-  params: Promise<{ name: string; number: string }>;
-}) {
+export default function PRDetailPage({ params }: { params: Promise<{ name: string; number: string }> }) {
   const { name, number } = use(params);
-  const prNumber = parseInt(number, 10);
-  const router = useRouter();
+  const num = parseInt(number, 10);
+  const { fetchPR, addComment, editComment, deleteComment, mergePR, triggerAIReview, actionLoading } = usePullRequests(name);
 
-  const {
-    fetchPR, updatePR, deletePR, mergePR,
-    addComment, editComment, deleteComment,
-    actionLoading, actionError, setActionError,
-  } = usePullRequests(name);
-
-  const [pr, setPR] = useState<PullRequest | null>(null);
+  const [pr, setPr] = useState<PullRequest | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-
-  // Edit PR state
-  const [editMode, setEditMode] = useState(false);
-  const [editTitle, setEditTitle] = useState("");
-  const [editBody, setEditBody] = useState("");
-
-  // Comment state
+  const [activeTab, setActiveTab] = useState<"overview" | "files" | "comments">("overview");
   const [commentBody, setCommentBody] = useState("");
-  const [commentSubmitting, setCommentSubmitting] = useState(false);
-
-  // Merge state
+  const [commentFile, setCommentFile] = useState("");
+  const [commentLine, setCommentLine] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [retriggering, setRetriggering] = useState(false);
   const [mergeMethod, setMergeMethod] = useState<"merge" | "squash" | "rebase">("merge");
-  const [mergeConfirm, setMergeConfirm] = useState(false);
-  const [mergeLoading, setMergeLoading] = useState(false);
+  const [merging, setMerging] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Close/reopen confirm
-  const [closeConfirm, setCloseConfirm] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const currentUser = typeof window !== "undefined" ? (localStorage.getItem("devflow_username") ?? "") : "";
 
   const load = useCallback(async () => {
-    setLoading(true);
-    const data = await fetchPR(prNumber);
-    if (!data) { setNotFound(true); }
-    else { setPR(data); setEditTitle(data.title); setEditBody(data.body); }
+    const data = await fetchPR(num);
+    if (data) setPr(data);
     setLoading(false);
-  }, [fetchPR, prNumber]);
+  }, [fetchPR, num]);
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleSaveEdit() {
-    if (!editTitle.trim()) return;
-    const updated = await updatePR(prNumber, { title: editTitle.trim(), body: editBody.trim() });
-    if (updated) { setPR(updated); setEditMode(false); }
-  }
-
-  async function handleToggleState() {
-    if (!pr) return;
-    const newState = pr.state === "open" ? "closed" : "open";
-    const updated = await updatePR(prNumber, { state: newState });
-    if (updated) { setPR(updated); setCloseConfirm(false); }
-  }
-
-  async function handleMerge() {
-    setMergeLoading(true);
-    const updated = await mergePR(prNumber, mergeMethod);
-    if (updated) { setPR(updated); setMergeConfirm(false); }
-    setMergeLoading(false);
-  }
-
-  async function handleDelete() {
-    const ok = await deletePR(prNumber);
-    if (ok) router.push(`/dashboard/repositories/${name}/pulls`);
-  }
+  // Poll every 5s while AI review is pending
+  useEffect(() => {
+    if (pr?.aiReview?.status === "pending") {
+      pollRef.current = setInterval(async () => {
+        const data = await fetchPR(num);
+        if (data) {
+          setPr(data);
+          if (data.aiReview?.status !== "pending") {
+            if (pollRef.current) clearInterval(pollRef.current);
+          }
+        }
+      }, 5000);
+    } else {
+      if (pollRef.current) clearInterval(pollRef.current);
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [pr?.aiReview?.status, fetchPR, num]);
 
   async function handleAddComment() {
-    if (!commentBody.trim()) return;
-    setCommentSubmitting(true);
-    const ok = await addComment(prNumber, commentBody.trim());
+    if (!pr || !commentBody.trim()) return;
+    setSubmitting(true);
+    const ok = await addComment(num, commentBody.trim(), commentFile || undefined, commentLine ? parseInt(commentLine) : undefined);
     if (ok) {
       setCommentBody("");
+      setCommentFile("");
+      setCommentLine("");
       await load();
     }
-    setCommentSubmitting(false);
+    setSubmitting(false);
   }
 
   async function handleEditComment(commentId: string, body: string) {
-    const ok = await editComment(prNumber, commentId, body);
-    if (ok) await load();
+    if (!pr) return;
+    await editComment(num, commentId, body);
+    await load();
   }
 
   async function handleDeleteComment(commentId: string) {
-    const ok = await deleteComment(prNumber, commentId);
-    if (ok) await load();
+    if (!pr) return;
+    await deleteComment(num, commentId);
+    await load();
   }
 
-  // ── Loading ──────────────────────────────────────────────────────────────
+  async function handleMerge() {
+    if (!pr) return;
+    setMerging(true);
+    const updated = await mergePR(num, mergeMethod);
+    if (updated) setPr(updated);
+    setMerging(false);
+  }
+
+  async function handleRetrigger() {
+    if (!pr) return;
+    setRetriggering(true);
+    // Optimistically mark as pending
+    setPr(prev => prev ? { ...prev, aiReview: { status: "pending", summary: "", suggestions: [], model: "", reviewedAt: null, errorMsg: "" } } : prev);
+    await triggerAIReview(num);
+    setRetriggering(false);
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative w-10 h-10">
-            <div className="absolute inset-0 rounded-full border-2 border-indigo-500/20" />
-            <div className="absolute inset-0 rounded-full border-2 border-t-indigo-400 animate-spin" />
-          </div>
-          <p className="text-white/30 text-sm">Loading pull request…</p>
+      <div className="min-h-screen bg-[#0a0a0f] text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-white/30">
+          <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <span className="text-sm">Loading pull request…</span>
         </div>
       </div>
     );
   }
 
-  if (notFound || !pr) {
+  if (!pr) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-sm">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-            <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <p className="text-white font-semibold">Pull request not found</p>
-          <Link href={`/dashboard/repositories/${name}/pulls`} className="inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 text-sm">
-            ← Back to pull requests
-          </Link>
+      <div className="min-h-screen bg-[#0a0a0f] text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-white/40 text-sm">Pull request not found.</p>
+          <Link href={`/dashboard/repositories/${name}/pulls`} className="text-indigo-400 hover:text-indigo-300 text-sm mt-2 inline-block">← Back to pull requests</Link>
         </div>
       </div>
     );
   }
+
+  const stateColor = pr.state === "merged" ? "bg-violet-500/15 text-violet-300 border-violet-500/25"
+    : pr.state === "closed" ? "bg-red-500/15 text-red-300 border-red-500/25"
+    : "bg-emerald-500/15 text-emerald-300 border-emerald-500/25";
+
+  const lineComments = (pr.comments ?? []).filter(c => c.filePath && c.lineNumber > 0);
+  const generalComments = (pr.comments ?? []).filter(c => !c.filePath || c.lineNumber === 0);
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
 
-        {/* ── Breadcrumb ─────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-2 text-sm text-white/40 flex-wrap">
+        {/* ── Breadcrumb ─────────────────────────────────────────────────────── */}
+        <div className="flex items-center gap-2 text-sm text-white/35">
           <Link href="/dashboard/repositories" className="hover:text-white transition-colors">Repositories</Link>
-          <span className="text-white/20">/</span>
+          <span className="text-white/15">/</span>
           <Link href={`/dashboard/repositories/${name}`} className="hover:text-white transition-colors">{name}</Link>
-          <span className="text-white/20">/</span>
+          <span className="text-white/15">/</span>
           <Link href={`/dashboard/repositories/${name}/pulls`} className="hover:text-white transition-colors">Pull Requests</Link>
-          <span className="text-white/20">/</span>
-          <span className="text-white/70">#{pr.number}</span>
+          <span className="text-white/15">/</span>
+          <span className="text-white/60">#{pr.number}</span>
         </div>
 
-        {/* ── PR header ──────────────────────────────────────────────────── */}
+        {/* ── PR Header ──────────────────────────────────────────────────────── */}
         <div className="space-y-3">
-          {editMode ? (
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full bg-[#0d0d14] border border-white/[0.08] rounded-xl px-4 py-3 text-white text-lg font-bold focus:outline-none focus:border-indigo-400/40"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleSaveEdit}
-                  disabled={actionLoading || !editTitle.trim()}
-                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-sm font-medium transition-colors cursor-pointer"
-                >
-                  {actionLoading ? "Saving…" : "Save changes"}
-                </button>
-                <button
-                  onClick={() => { setEditMode(false); setEditTitle(pr.title); setEditBody(pr.body); }}
-                  className="px-4 py-2 rounded-lg border border-white/[0.08] text-white/40 text-sm hover:text-white transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-start gap-3">
-              <h1 className="text-2xl font-bold text-white flex-1 leading-tight">
-                {pr.title}{" "}
-                <span className="text-white/30 font-normal text-xl">#{pr.number}</span>
-              </h1>
-              <button
-                onClick={() => setEditMode(true)}
-                className="shrink-0 p-2 rounded-lg text-white/25 hover:text-white/60 hover:bg-white/[0.05] transition-colors cursor-pointer mt-0.5"
-                title="Edit title"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-            </div>
-          )}
-
-          {/* State + meta row */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <PRStateBadge state={pr.state} />
-            {pr.isDraft && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs text-white/40 bg-white/[0.06] border border-white/[0.1]">
-                Draft
-              </span>
-            )}
-            <span className="text-white/35 text-sm">
-              <span className="text-white/55">{pr.authorName}</span> wants to merge
-              {" "}<code className="text-emerald-300/70 bg-emerald-500/10 px-1.5 py-0.5 rounded font-mono text-xs">{pr.headBranch}</code>
-              {" "}into{" "}
-              <code className="text-indigo-300/70 bg-indigo-500/10 px-1.5 py-0.5 rounded font-mono text-xs">{pr.baseBranch}</code>
+          <div className="flex items-start gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold text-white flex-1">{pr.title}</h1>
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border ${stateColor} shrink-0`}>
+              {pr.state === "merged" && <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0 0 .005L5 3.25Z"/></svg>}
+              {pr.state === "open" && <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/></svg>}
+              {pr.state}
             </span>
-            <span className="text-white/25 text-sm">· opened {timeAgo(pr.createdAt)}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap text-sm text-white/35">
+            <span className="text-white/50 font-medium">{pr.authorName}</span>
+            <span className="text-white/15">·</span>
+            <span>{pr.state === "merged" && pr.mergedAt ? `merged ${timeAgo(pr.mergedAt)}` : pr.state === "closed" && pr.closedAt ? `closed ${timeAgo(pr.closedAt)}` : `opened ${timeAgo(pr.createdAt)}`}</span>
+            <span className="text-white/15">·</span>
+            <span className="font-mono text-white/40">{pr.headBranch} → {pr.baseBranch}</span>
+            {pr.isDraft && <span className="px-2 py-0.5 rounded text-xs bg-white/[0.06] border border-white/[0.09] text-white/35">Draft</span>}
           </div>
 
           {/* Labels */}
           {(pr.labels ?? []).length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {(pr.labels ?? []).map((l) => <LabelPill key={l.name} label={l} />)}
+            <div className="flex items-center gap-2 flex-wrap">
+              {(pr.labels ?? []).map((l) => {
+                const bg = l.color ? (l.color.startsWith("#") ? l.color : "#" + l.color) : "#6366f1";
+                return (
+                  <span key={l.name} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: bg + "33", color: bg, border: `1px solid ${bg}55` }}>
+                    {l.name}
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* ── Two-column layout ───────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
+        {/* ── Tabs ───────────────────────────────────────────────────────────── */}
+        <div className="flex items-center gap-1 border-b border-white/[0.07]">
+          {(["overview", "files", "comments"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setActiveTab(t)}
+              className={`px-4 py-2.5 text-sm font-medium capitalize transition-colors cursor-pointer border-b-2 -mb-px ${
+                activeTab === t ? "border-indigo-400 text-white" : "border-transparent text-white/40 hover:text-white/70"
+              }`}
+            >
+              {t === "comments" ? `Comments (${(pr.comments ?? []).length})` : t === "files" ? `Files (${(pr.changedFiles ?? []).length})` : t}
+              {t === "overview" && pr.aiReview && (
+                <span className={`ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${
+                  pr.aiReview.status === "pending" ? "bg-indigo-500/15 text-indigo-400 border-indigo-500/20"
+                  : pr.aiReview.status === "done" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
+                  : "bg-amber-500/15 text-amber-400 border-amber-500/20"
+                }`}>
+                  {pr.aiReview.status === "pending" ? "AI…" : pr.aiReview.status === "done" ? `AI ${pr.aiReview.suggestions?.length ?? 0}` : "AI!"}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
-          {/* ── Main column ──────────────────────────────────────────────── */}
-          <div className="space-y-5">
+        {/* ── Content ────────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
 
-            {/* Body / Description */}
-            {editMode ? (
-              <div className="bg-[#0d0d14] border border-white/[0.08] rounded-2xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/[0.06] bg-white/[0.015]">
-                  <span className="text-xs font-medium text-white/40 uppercase tracking-wider">Description</span>
-                </div>
-                <div className="p-4">
-                  <textarea
-                    value={editBody}
-                    onChange={(e) => setEditBody(e.target.value)}
-                    rows={8}
-                    placeholder="Add a description…"
-                    className="w-full bg-[#111117] border border-white/[0.08] rounded-xl px-3 py-2.5 text-white/80 text-sm focus:outline-none focus:border-indigo-400/40 resize-y font-mono"
-                  />
-                </div>
-              </div>
-            ) : pr.body ? (
-              <div className="bg-[#0d0d14] border border-white/[0.08] rounded-2xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/[0.06] bg-white/[0.015]">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white">
+          {/* Main column */}
+          <div className="space-y-6 min-w-0">
+
+            {activeTab === "overview" && (
+              <>
+                {/* Description */}
+                <div className="border border-white/[0.08] rounded-2xl bg-[#0d0d14] overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06]">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500/30 to-violet-500/30 border border-white/[0.08] flex items-center justify-center text-white/50 text-xs font-semibold">
                       {pr.authorName?.[0]?.toUpperCase() ?? "?"}
                     </div>
                     <span className="text-sm font-medium text-white/70">{pr.authorName}</span>
-                    <span className="text-white/25 text-xs">{timeAgo(pr.createdAt)}</span>
+                    <span className="text-xs text-white/25 ml-auto">{timeAgo(pr.createdAt)}</span>
+                  </div>
+                  <div className="px-5 py-4">
+                    <MarkdownRenderer content={pr.body} />
                   </div>
                 </div>
-                <div className="px-4 py-4">
-                  <p className="text-white/70 text-sm leading-relaxed whitespace-pre-wrap">{pr.body}</p>
-                </div>
-              </div>
-            ) : null}
 
-            {/* Changed files */}
-            {pr.changedFiles && pr.changedFiles.length > 0 && (
-              <div className="bg-[#0d0d14] border border-white/[0.08] rounded-2xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/[0.06] bg-white/[0.015] flex items-center justify-between">
-                  <span className="text-xs font-medium text-white/50 uppercase tracking-wider">
-                    Changed files
-                  </span>
-                  <div className="flex items-center gap-2 text-xs">
-                    {pr.additions > 0 && <span className="text-teal-400 font-mono">+{pr.additions}</span>}
-                    {pr.deletions > 0 && <span className="text-rose-400 font-mono">-{pr.deletions}</span>}
-                  </div>
-                </div>
-                <div className="divide-y divide-white/[0.05]">
-                  {pr.changedFiles.map((file) => (
-                    <div key={file} className="flex items-center gap-2 px-4 py-2.5">
-                      <svg className="w-3.5 h-3.5 text-white/25 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      <code className="text-xs text-white/55 font-mono">{file}</code>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Merge box (only for open PRs) */}
-            {pr.state === "open" && (
-              <div className="bg-[#0d0d14] border border-white/[0.08] rounded-2xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/[0.06] bg-white/[0.015]">
-                  <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Merge pull request</span>
-                </div>
-                <div className="p-4 space-y-4">
-                  {pr.isDraft ? (
-                    <div className="flex items-center gap-3 text-amber-400/70 text-sm">
-                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      This is a draft pull request. Mark it ready for review before merging.
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 text-emerald-400 text-sm">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Ready to merge
-                        </div>
-                      </div>
-
-                      {/* Merge method selector */}
-                      <div className="flex items-center gap-2">
-                        {(["merge", "squash", "rebase"] as const).map((m) => (
-                          <button
-                            key={m}
-                            onClick={() => setMergeMethod(m)}
-                            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer capitalize ${
-                              mergeMethod === m
-                                ? "border-indigo-400/40 bg-indigo-500/15 text-indigo-300"
-                                : "border-white/[0.08] text-white/35 hover:text-white/60"
-                            }`}
-                          >
-                            {m === "merge" ? "Merge commit" : m === "squash" ? "Squash & merge" : "Rebase & merge"}
-                          </button>
-                        ))}
-                      </div>
-
-                      {!mergeConfirm ? (
-                        <button
-                          onClick={() => setMergeConfirm(true)}
-                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors cursor-pointer shadow-lg shadow-violet-900/30"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0 0 .005L5 3.25Z" />
-                          </svg>
-                          Merge pull request
-                        </button>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={handleMerge}
-                            disabled={mergeLoading}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white text-sm font-medium transition-colors cursor-pointer"
-                          >
-                            {mergeLoading ? (
-                              <>
-                                <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                Merging…
-                              </>
-                            ) : "Confirm merge"}
-                          </button>
-                          <button
-                            onClick={() => setMergeConfirm(false)}
-                            className="px-4 py-2 rounded-xl border border-white/[0.08] text-white/40 text-sm hover:text-white transition-colors cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Merged banner */}
-            {pr.state === "merged" && (
-              <div className="flex items-center gap-3 bg-violet-500/10 border border-violet-500/20 rounded-2xl px-5 py-4">
-                <svg className="w-5 h-5 text-violet-400 shrink-0" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0 0 .005L5 3.25Z" />
-                </svg>
+                {/* AI Review Panel */}
                 <div>
-                  <p className="text-violet-300 text-sm font-medium">
-                    Pull request merged{pr.mergedAt ? ` ${timeAgo(pr.mergedAt)}` : ""}
-                  </p>
-                  <p className="text-violet-400/50 text-xs mt-0.5">
-                    <code className="font-mono">{pr.headBranch}</code> was merged into{" "}
-                    <code className="font-mono">{pr.baseBranch}</code>
-                  </p>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-5 h-5 rounded bg-indigo-500/20 flex items-center justify-center">
+                      <svg className="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider">Gemini AI Review</h2>
+                  </div>
+                  <AIReviewPanel
+                    review={pr.aiReview}
+                    repoName={name}
+                    prNumber={num}
+                    onRetrigger={handleRetrigger}
+                    retriggering={retriggering}
+                  />
                 </div>
+
+                {/* General comments */}
+                {generalComments.length > 0 && (
+                  <div className="space-y-3">
+                    <h2 className="text-sm font-semibold text-white/40 uppercase tracking-wider">General Comments</h2>
+                    {generalComments.map((c) => (
+                      <CommentBubble key={c.id} comment={c} currentUser={currentUser} onEdit={handleEditComment} onDelete={handleDeleteComment} />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTab === "files" && (
+              <div className="space-y-3">
+                {(pr.changedFiles ?? []).length === 0 ? (
+                  <div className="text-center py-16 text-white/30 text-sm">No changed files recorded.</div>
+                ) : (
+                  <>
+                    {/* Changed files list with AI annotations */}
+                    {(pr.changedFiles ?? []).map((fp) => {
+                      const fileSugg = pr.aiReview?.suggestions?.filter(s => s.filePath === fp) ?? [];
+                      const lineCommsForFile = lineComments.filter(c => c.filePath === fp);
+                      return (
+                        <div key={fp} className="border border-white/[0.08] rounded-xl bg-[#0d0d14] overflow-hidden">
+                          <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] bg-white/[0.01]">
+                            <svg className="w-4 h-4 text-white/25 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span className="flex-1 text-sm font-mono text-white/65">{fp}</span>
+                            <div className="flex items-center gap-1.5">
+                              {fileSugg.filter(s => s.severity === "critical").length > 0 && (
+                                <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 font-semibold">⚠ {fileSugg.filter(s => s.severity === "critical").length}</span>
+                              )}
+                              {fileSugg.filter(s => s.severity === "warning").length > 0 && (
+                                <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-semibold">◆ {fileSugg.filter(s => s.severity === "warning").length}</span>
+                              )}
+                              {lineCommsForFile.length > 0 && (
+                                <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/[0.07] text-white/35 font-medium">{lineCommsForFile.length} comment{lineCommsForFile.length !== 1 ? "s" : ""}</span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Inline AI suggestions for this file */}
+                          {fileSugg.length > 0 && (
+                            <div className="px-3 py-3 space-y-2 border-b border-white/[0.05]">
+                              {fileSugg.map((s, i) => (
+                                <SuggestionCard key={i} s={s} index={i} />
+                              ))}
+                            </div>
+                          )}
+                          {/* Inline review comments */}
+                          {lineCommsForFile.length > 0 && (
+                            <div className="px-4 py-3 space-y-3">
+                              {lineCommsForFile.map((c) => (
+                                <CommentBubble key={c.id} comment={c} currentUser={currentUser} onEdit={handleEditComment} onDelete={handleDeleteComment} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
               </div>
             )}
 
-            {/* Comments */}
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-white/40 uppercase tracking-wider">
-                Comments{pr.commentCount > 0 ? ` · ${pr.commentCount}` : ""}
-              </h2>
-
-              {(pr.comments ?? []).length === 0 ? (
-                <div className="text-center py-10 text-white/20 text-sm bg-[#0d0d14] border border-white/[0.07] rounded-2xl">
-                  No comments yet.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {(pr.comments ?? []).map((comment) => (
-                    <CommentCard
-                      key={comment.id}
-                      comment={comment}
-                      onEdit={handleEditComment}
-                      onDelete={handleDeleteComment}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Add comment */}
-              <div className="bg-[#0d0d14] border border-white/[0.08] rounded-2xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/[0.06] bg-white/[0.015]">
-                  <span className="text-xs font-medium text-white/40 uppercase tracking-wider">Leave a comment</span>
-                </div>
-                <div className="p-4 space-y-3">
-                  {actionError && (
-                    <p className="text-red-400 text-xs">{actionError}</p>
-                  )}
-                  <textarea
-                    value={commentBody}
-                    onChange={(e) => setCommentBody(e.target.value)}
-                    placeholder="Add a comment…"
-                    rows={4}
-                    className="w-full bg-[#111117] border border-white/[0.08] rounded-xl px-3 py-2.5 text-white/80 text-sm placeholder-white/20 focus:outline-none focus:border-indigo-400/40 resize-none transition-colors"
-                  />
-                  <div className="flex justify-end">
-                    <button
-                      onClick={handleAddComment}
-                      disabled={commentSubmitting || !commentBody.trim()}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors cursor-pointer"
-                    >
-                      {commentSubmitting ? (
-                        <>
-                          <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                          Posting…
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                          </svg>
-                          Comment
-                        </>
-                      )}
-                    </button>
+            {activeTab === "comments" && (
+              <div className="space-y-4">
+                {(pr.comments ?? []).length === 0 ? (
+                  <div className="text-center py-10 text-white/30 text-sm">No comments yet.</div>
+                ) : (
+                  <div className="space-y-4">
+                    {(pr.comments ?? []).map((c) => (
+                      <CommentBubble key={c.id} comment={c} currentUser={currentUser} onEdit={handleEditComment} onDelete={handleDeleteComment} />
+                    ))}
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* Add Comment box (always visible) */}
+            <div className="border border-white/[0.08] rounded-2xl bg-[#0d0d14] overflow-hidden">
+              <div className="px-4 py-3 border-b border-white/[0.06]">
+                <p className="text-sm font-medium text-white/50">Add a comment</p>
+              </div>
+              <div className="p-4 space-y-3">
+                <textarea
+                  value={commentBody}
+                  onChange={e => setCommentBody(e.target.value)}
+                  placeholder="Leave a comment…"
+                  className="w-full bg-[#0a0a0f] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white/80 placeholder-white/20 resize-none focus:outline-none focus:border-indigo-400/40 min-h-[100px] transition-colors"
+                />
+                <div className="flex items-center gap-3 flex-wrap">
+                  <input
+                    value={commentFile}
+                    onChange={e => setCommentFile(e.target.value)}
+                    placeholder="File path (optional)"
+                    list="file-paths"
+                    className="flex-1 bg-[#0a0a0f] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/60 placeholder-white/20 focus:outline-none focus:border-indigo-400/30 min-w-[140px] transition-colors"
+                  />
+                  <datalist id="file-paths">
+                    {(pr.changedFiles ?? []).map(f => <option key={f} value={f} />)}
+                  </datalist>
+                  <input
+                    value={commentLine}
+                    onChange={e => setCommentLine(e.target.value)}
+                    placeholder="Line # (optional)"
+                    type="number"
+                    className="w-32 bg-[#0a0a0f] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/60 placeholder-white/20 focus:outline-none focus:border-indigo-400/30 transition-colors"
+                  />
+                  <button
+                    onClick={handleAddComment}
+                    disabled={submitting || !commentBody.trim()}
+                    className="ml-auto flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? "Posting…" : "Comment"}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ── Sidebar ───────────────────────────────────────────────────── */}
+          {/* Sidebar */}
           <div className="space-y-4">
 
-            {/* PR meta */}
-            <div className="bg-[#0d0d14] border border-white/[0.08] rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-white/[0.06]">
-                <span className="text-xs font-medium text-white/40 uppercase tracking-wider">Details</span>
-              </div>
-              <div className="divide-y divide-white/[0.05]">
-                <div className="px-4 py-3 flex items-center justify-between">
-                  <span className="text-xs text-white/35">Author</span>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-[10px] font-bold text-white">
-                      {pr.authorName?.[0]?.toUpperCase()}
-                    </div>
-                    <span className="text-xs text-white/60">{pr.authorName}</span>
-                  </div>
-                </div>
-                <div className="px-4 py-3 flex items-center justify-between">
-                  <span className="text-xs text-white/35">State</span>
-                  <PRStateBadge state={pr.state} />
-                </div>
-                <div className="px-4 py-3 flex items-center justify-between">
-                  <span className="text-xs text-white/35">Head</span>
-                  <code className="text-xs text-emerald-300/70 bg-emerald-500/10 px-2 py-0.5 rounded font-mono">{pr.headBranch}</code>
-                </div>
-                <div className="px-4 py-3 flex items-center justify-between">
-                  <span className="text-xs text-white/35">Base</span>
-                  <code className="text-xs text-indigo-300/70 bg-indigo-500/10 px-2 py-0.5 rounded font-mono">{pr.baseBranch}</code>
-                </div>
-                <div className="px-4 py-3 flex items-center justify-between">
-                  <span className="text-xs text-white/35">Comments</span>
-                  <span className="text-xs text-white/55">{pr.commentCount}</span>
-                </div>
-                <div className="px-4 py-3 flex items-center justify-between">
-                  <span className="text-xs text-white/35">Opened</span>
-                  <span className="text-xs text-white/45">{timeAgo(pr.createdAt)}</span>
-                </div>
-                {pr.mergedAt && (
-                  <div className="px-4 py-3 flex items-center justify-between">
-                    <span className="text-xs text-white/35">Merged</span>
-                    <span className="text-xs text-violet-400">{timeAgo(pr.mergedAt)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Labels */}
-            {(pr.labels ?? []).length > 0 && (
-              <div className="bg-[#0d0d14] border border-white/[0.08] rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/[0.06]">
-                  <span className="text-xs font-medium text-white/40 uppercase tracking-wider">Labels</span>
-                </div>
-                <div className="px-4 py-3 flex flex-wrap gap-1.5">
-                  {(pr.labels ?? []).map((l) => <LabelPill key={l.name} label={l} />)}
-                </div>
+            {/* Merge section */}
+            {pr.state === "open" && (
+              <div className="border border-white/[0.08] rounded-2xl bg-[#0d0d14] p-4 space-y-3">
+                <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Merge pull request</p>
+                <select
+                  value={mergeMethod}
+                  onChange={e => setMergeMethod(e.target.value as typeof mergeMethod)}
+                  className="w-full bg-[#0a0a0f] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white/60 focus:outline-none cursor-pointer"
+                >
+                  <option value="merge">Create a merge commit</option>
+                  <option value="squash">Squash and merge</option>
+                  <option value="rebase">Rebase and merge</option>
+                </select>
+                <button
+                  onClick={handleMerge}
+                  disabled={merging || actionLoading}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-400 text-white text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0 0 .005L5 3.25Z"/>
+                  </svg>
+                  {merging ? "Merging…" : "Merge pull request"}
+                </button>
               </div>
             )}
 
-            {/* Actions */}
-            <div className="bg-[#0d0d14] border border-white/[0.08] rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-white/[0.06]">
-                <span className="text-xs font-medium text-white/40 uppercase tracking-wider">Actions</span>
-              </div>
-              <div className="p-3 space-y-2">
-                {/* Close / Reopen */}
-                {pr.state !== "merged" && (
-                  <>
-                    {!closeConfirm ? (
-                      <button
-                        onClick={() => setCloseConfirm(true)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                          pr.state === "open"
-                            ? "text-white/50 hover:text-white/80 hover:bg-white/[0.05] border border-white/[0.07]"
-                            : "text-emerald-400/70 hover:text-emerald-400 hover:bg-emerald-500/[0.07] border border-white/[0.07]"
-                        }`}
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          {pr.state === "open" ? (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          ) : (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          )}
-                        </svg>
-                        {pr.state === "open" ? "Close pull request" : "Reopen pull request"}
-                      </button>
-                    ) : (
-                      <div className="space-y-2">
-                        <p className="text-xs text-white/40 px-1">
-                          {pr.state === "open" ? "Close this pull request?" : "Reopen this pull request?"}
-                        </p>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleToggleState}
-                            disabled={actionLoading}
-                            className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 ${
-                              pr.state === "open"
-                                ? "bg-red-500/15 text-red-400 hover:bg-red-500/25"
-                                : "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
-                            }`}
-                          >
-                            {actionLoading ? "…" : "Confirm"}
-                          </button>
-                          <button
-                            onClick={() => setCloseConfirm(false)}
-                            className="flex-1 px-3 py-1.5 rounded-lg border border-white/[0.08] text-white/30 text-xs hover:text-white transition-colors cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Delete */}
-                {!deleteConfirm ? (
-                  <button
-                    onClick={() => setDeleteConfirm(true)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-red-400/50 hover:text-red-400 hover:bg-red-500/[0.07] border border-white/[0.07] transition-colors cursor-pointer"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Delete pull request
-                  </button>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-xs text-white/40 px-1">This cannot be undone.</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleDelete}
-                        disabled={actionLoading}
-                        className="flex-1 px-3 py-1.5 rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 text-xs font-medium transition-colors cursor-pointer disabled:opacity-40"
-                      >
-                        {actionLoading ? "…" : "Delete"}
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm(false)}
-                        className="flex-1 px-3 py-1.5 rounded-lg border border-white/[0.08] text-white/30 text-xs hover:text-white transition-colors cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
+            {/* Stats */}
+            <div className="border border-white/[0.08] rounded-2xl bg-[#0d0d14] p-4 space-y-3">
+              <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Stats</p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-white/40">Additions</span>
+                  <span className="text-teal-400 font-mono font-semibold">+{pr.additions}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-white/40">Deletions</span>
+                  <span className="text-rose-400 font-mono font-semibold">-{pr.deletions}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-white/40">Files changed</span>
+                  <span className="text-white/60 font-semibold">{(pr.changedFiles ?? []).length}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-white/40">Comments</span>
+                  <span className="text-white/60 font-semibold">{pr.commentCount}</span>
+                </div>
               </div>
             </div>
+
+            {/* AI Review summary */}
+            <div className="border border-white/[0.08] rounded-2xl bg-[#0d0d14] p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">AI Review</p>
+                {!pr.aiReview || pr.aiReview.status === "error" || pr.aiReview.status === "skipped" ? (
+                  <button
+                    onClick={handleRetrigger}
+                    disabled={retriggering}
+                    className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {retriggering ? "Triggering…" : "Run now"}
+                  </button>
+                ) : null}
+              </div>
+              {!pr.aiReview ? (
+                <p className="text-xs text-white/30">Not yet run.</p>
+              ) : pr.aiReview.status === "pending" ? (
+                <div className="flex items-center gap-2 text-xs text-indigo-400">
+                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                  Analysing…
+                </div>
+              ) : pr.aiReview.status === "done" ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-medium">Done</span>
+                    {pr.aiReview.model && <span className="text-xs text-white/20 font-mono">{pr.aiReview.model}</span>}
+                  </div>
+                  {(pr.aiReview.suggestions?.length ?? 0) === 0 ? (
+                    <p className="text-xs text-emerald-400/70">✓ No issues found</p>
+                  ) : (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {pr.aiReview.suggestions?.filter(s => s.severity === "critical").length > 0 && (
+                        <span className="text-xs text-red-400 font-semibold">⚠ {pr.aiReview.suggestions.filter(s => s.severity === "critical").length} critical</span>
+                      )}
+                      {pr.aiReview.suggestions?.filter(s => s.severity === "warning").length > 0 && (
+                        <span className="text-xs text-amber-400 font-semibold">◆ {pr.aiReview.suggestions.filter(s => s.severity === "warning").length} warning</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-red-400/70">{pr.aiReview.errorMsg || "Failed"}</p>
+              )}
+            </div>
+
+            {/* Changed files list */}
+            {(pr.changedFiles ?? []).length > 0 && (
+              <div className="border border-white/[0.08] rounded-2xl bg-[#0d0d14] p-4 space-y-2">
+                <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-2">Changed Files</p>
+                {(pr.changedFiles ?? []).map((f) => {
+                  const hasCrit = pr.aiReview?.suggestions?.some(s => s.filePath === f && s.severity === "critical");
+                  const hasWarn = pr.aiReview?.suggestions?.some(s => s.filePath === f && s.severity === "warning");
+                  return (
+                    <div key={f} className="flex items-center gap-2">
+                      {hasCrit ? <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+                        : hasWarn ? <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                        : <span className="w-2 h-2 rounded-full bg-white/10 shrink-0" />}
+                      <button
+                        className="text-xs font-mono text-white/45 hover:text-white/70 transition-colors cursor-pointer text-left truncate"
+                        onClick={() => setActiveTab("files")}
+                      >
+                        {f}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
