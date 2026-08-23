@@ -56,6 +56,12 @@ const Icon = {
       <path d="M3 12l2 2M11 12l2 2M3 14l2-2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   ),
+  pair: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M5 6l-2 2 2 2M11 6l2 2-2 2M9 5.5l-2 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
   marketplace: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <path d="M2 3h12l-1.5 6H3.5L2 3Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
@@ -108,7 +114,8 @@ function buildNavSections(openPRs: number, openIssues: number): NavSection[] {
     {
       title: "DevFlow",
       items: [
-        { label: "AI Reviews",   href: "/dashboard/ai",           icon: Icon.ai        },
+        { label: "AI Reviews",       href: "/dashboard/ai",    icon: Icon.ai          },
+        { label: "Pair Programming", href: "/dashboard/pair",  icon: Icon.pair        },
         { label: "Marketplace",  href: "/dashboard/marketplace",  icon: Icon.marketplace },
         { label: "Analytics",    href: "/dashboard/analytics",    icon: Icon.analytics  },
         { label: "Team",         href: "/dashboard/team",         icon: Icon.team       },
