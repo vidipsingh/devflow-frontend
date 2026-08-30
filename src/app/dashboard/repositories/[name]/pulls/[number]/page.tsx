@@ -3,7 +3,9 @@
 
 import { use, useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { usePullRequests, PullRequest, PRComment, AIReview, AISuggestion } from "@/hooks/usePullRequests";
+import { useReviewSessions } from "@/hooks/useReviewSession";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 
@@ -392,6 +394,7 @@ function CommentBubble({
 export default function PRDetailPage({ params }: { params: Promise<{ name: string; number: string }> }) {
   const { name, number } = use(params);
   const num = parseInt(number, 10);
+  const router = useRouter();
   const { fetchPR, addComment, editComment, deleteComment, mergePR, triggerAIReview, actionLoading } = usePullRequests(name);
 
   const [pr, setPr] = useState<PullRequest | null>(null);
@@ -404,7 +407,51 @@ export default function PRDetailPage({ params }: { params: Promise<{ name: strin
   const [retriggering, setRetriggering] = useState(false);
   const [mergeMethod, setMergeMethod] = useState<"merge" | "squash" | "rebase">("merge");
   const [merging, setMerging] = useState(false);
+  const [startingReview, setStartingReview] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Review sessions ─────────────────────────────────────────────────────────
+  // repoId is not directly available here; we resolve it lazily from the PR object
+  const [prRepoId, setPrRepoId] = useState<string>("");
+  const [prId, setPrId] = useState<string>("");
+  const { sessions: reviewSessions, create: createReviewSession } = useReviewSessions(prRepoId, prId);
+
+  // Sync repoId + prId once PR is loaded
+  useEffect(() => {
+    if (pr) {
+      setPrRepoId(pr.repoId ?? "");
+      setPrId(pr.id ?? "");
+    }
+  }, [pr]);
+
+  const handleStartReviewSession = useCallback(async () => {
+    if (!pr) return;
+    setStartingReview(true);
+    const sess = await createReviewSession();
+    setStartingReview(false);
+    if (sess) {
+      const params = new URLSearchParams({
+        repoId:   pr.repoId ?? "",
+        prId:     pr.id ?? "",
+        prNum:    String(pr.number),
+        repoName: name,
+        ownerId:  sess.ownerId,
+      });
+      router.push(`/dashboard/review/${sess.id}?${params.toString()}`);
+    }
+  }, [pr, createReviewSession, router, name]);
+
+  const handleJoinReviewSession = useCallback((sessionId: string, ownerId?: string) => {
+    if (!pr) return;
+    const params = new URLSearchParams({
+      repoId:   pr.repoId ?? "",
+      prId:     pr.id ?? "",
+      prNum:    String(pr.number),
+      repoName: name,
+      ownerId:  ownerId ?? "",
+    });
+    router.push(`/dashboard/review/${sessionId}?${params.toString()}`);
+  }, [pr, router, name]);
 
   const currentUser = typeof window !== "undefined" ? (localStorage.getItem("devflow_username") ?? "") : "";
 
@@ -866,6 +913,68 @@ export default function PRDetailPage({ params }: { params: Promise<{ name: strin
                 })}
               </div>
             )}
+
+            {/* ── Review Sessions ─────────────────────────────────────────────── */}
+            <div className="border border-white/[0.08] rounded-2xl bg-[#0d0d14] p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Review Session</p>
+                <button
+                  onClick={handleStartReviewSession}
+                  disabled={startingReview}
+                  className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {startingReview ? (
+                    <>
+                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      Starting…
+                    </>
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M15 10l4.55-2.56A1 1 0 0121 8.38v7.24a1 1 0 01-1.45.88L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Start new
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {reviewSessions.length === 0 ? (
+                <p className="text-xs text-white/25">No sessions yet. Start one to review this PR live with your team.</p>
+              ) : (
+                <div className="space-y-2">
+                  {reviewSessions.slice(0, 3).map(sess => (
+                    <div key={sess.id} className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          sess.status === "active" ? "bg-emerald-400" :
+                          sess.status === "waiting" ? "bg-amber-400" : "bg-white/15"
+                        }`} />
+                        <span className="text-xs text-white/40 truncate font-mono">{sess.id.slice(0, 8)}…</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
+                          sess.status === "active"  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                          sess.status === "waiting" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                                                      "bg-white/5 text-white/25 border-white/10"
+                        }`}>
+                          {sess.status}
+                        </span>
+                      </div>
+                      {sess.status !== "ended" && (
+                        <button
+                          onClick={() => handleJoinReviewSession(sess.id)}
+                          className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer shrink-0"
+                        >
+                          Join
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

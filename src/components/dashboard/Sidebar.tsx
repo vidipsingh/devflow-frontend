@@ -62,6 +62,13 @@ const Icon = {
       <path d="M5 6l-2 2 2 2M11 6l2 2-2 2M9 5.5l-2 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  explore: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M8 2.5A5.5 5.5 0 0 1 13.5 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M10 6l-3.5 1.5L5 11l3.5-1.5L10 6Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+    </svg>
+  ),
   marketplace: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <path d="M2 3h12l-1.5 6H3.5L2 3Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
@@ -109,6 +116,7 @@ function buildNavSections(openPRs: number, openIssues: number): NavSection[] {
         { label: "Repositories", href: "/dashboard/repositories",  icon: Icon.repo        },
         { label: "Pull Requests",href: "/dashboard/pulls",         icon: Icon.pr,   badge: openPRs   },
         { label: "Issues",       href: "/dashboard/issues",        icon: Icon.issue, badge: openIssues },
+        { label: "Explore",      href: "/dashboard/explore",       icon: Icon.explore     },
       ],
     },
     {
