@@ -43,22 +43,25 @@ function VideoTile({
   const videoRef   = useRef<HTMLVideoElement>(null);
   const cameraRef  = useRef<HTMLVideoElement>(null);
 
+  // showVideo controls CSS visibility only — we ALWAYS attach the stream so audio plays
   const showVideo = (!videoMuted || screenActive) && !!stream;
 
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
-    if (showVideo) { if (el.srcObject !== stream) el.srcObject = stream; }
-    else            el.srcObject = null;
-  }, [stream, showVideo]);
+    // Always set srcObject when stream is available so audio tracks keep playing.
+    // When videoMuted, we hide the element via CSS instead of removing srcObject.
+    if (stream) { if (el.srcObject !== stream) el.srcObject = stream; }
+    else el.srcObject = null;
+  }, [stream]);
 
   // Wire camera PiP video element to the raw camera stream
   useEffect(() => {
     const el = cameraRef.current;
     if (!el) return;
-    if (cameraStream && !videoMuted) { if (el.srcObject !== cameraStream) el.srcObject = cameraStream; }
+    if (cameraStream) { if (el.srcObject !== cameraStream) el.srcObject = cameraStream; }
     else el.srcObject = null;
-  }, [cameraStream, videoMuted]);
+  }, [cameraStream]);
 
   const initials = label.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 
@@ -89,11 +92,18 @@ function VideoTile({
       onClick={onClick}
       className={`relative rounded-xl overflow-hidden bg-[#111118] border border-white/[0.07] aspect-video flex items-center justify-center ${onClick ? "cursor-pointer hover:border-white/20 transition-all" : ""}`}
     >
-      {showVideo ? (
-        <video ref={videoRef} autoPlay playsInline muted={muted} className="w-full h-full object-cover" />
-      ) : (
-        <Avatar size={large ? "large" : "small"} />
+      {/* Video element is ALWAYS rendered when stream exists — hiding via CSS so audio keeps playing */}
+      {stream && (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={muted}
+          className={`w-full h-full object-cover ${showVideo ? "" : "hidden"}`}
+        />
       )}
+      {/* Avatar shown when no video (camera muted or no stream) */}
+      {!showVideo && <Avatar size={large ? "large" : "small"} />}
 
       {/* GMeet-style camera PiP when screen sharing — always visible (avatar fallback when camera off) */}
       {screenActive && large && (
@@ -392,7 +402,20 @@ export default function ReviewSessionPage() {
               {error}
             </div>
           )}
-          <div className="w-full max-w-4xl">
+          {/*
+            Layout rules:
+            • Local user sharing screen → max-w-5xl (a bit wider than normal to see more of the screen)
+            • Remote user is main tile (viewer) → full width with an emerald glow border to indicate
+              someone is sharing; aspect-video handled by VideoTile itself
+            • Normal video (no sharing) → max-w-4xl centred
+          */}
+          <div className={
+            mainTile.isLocal && screenSharing
+              ? "w-full max-w-5xl"
+              : !mainTile.isLocal && peerList.length > 0
+              ? "w-full max-w-full px-2 ring-1 ring-emerald-500/20 rounded-2xl overflow-hidden"
+              : "w-full max-w-4xl"
+          }>
             <VideoTile
               stream={mainTile.stream}
               cameraStream={mainTile.isLocal ? localStream : null}
