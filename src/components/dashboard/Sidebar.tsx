@@ -81,6 +81,13 @@ const Icon = {
       <path d="M2 12l3.5-4 3 2.5L12 5l2 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  billing: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M1.5 6.5h13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M4.5 9.5h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
   team: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.2" />
@@ -127,6 +134,7 @@ function buildNavSections(openPRs: number, openIssues: number): NavSection[] {
         { label: "Marketplace",  href: "/dashboard/marketplace",  icon: Icon.marketplace },
         { label: "Analytics",    href: "/dashboard/analytics",    icon: Icon.analytics  },
         { label: "Team",         href: "/dashboard/team",         icon: Icon.team       },
+        { label: "Billing",      href: "/dashboard/billing",      icon: Icon.billing    },
       ],
     },
     {
