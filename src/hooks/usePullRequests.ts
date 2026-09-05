@@ -92,6 +92,41 @@ export interface PRListResult {
   total: number;
 }
 
+// ─── Diff types ───────────────────────────────────────────────────────────────
+
+export type DiffLineType = "context" | "addition" | "deletion";
+
+export interface DiffLine {
+  type: DiffLineType;
+  content: string;
+  oldNo: number | null;
+  newNo: number | null;
+}
+
+export interface DiffHunk {
+  header: string;
+  oldStart: number;
+  oldCount: number;
+  newStart: number;
+  newCount: number;
+  lines: DiffLine[];
+}
+
+export interface FileDiff {
+  path: string;
+  status: "added" | "removed" | "modified";
+  additions: number;
+  deletions: number;
+  hunks: DiffHunk[];
+  isBinary: boolean;
+}
+
+export interface PRDiff {
+  files: FileDiff[];
+  additions: number;
+  deletions: number;
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function usePullRequests(repoSlug: string) {
@@ -332,6 +367,24 @@ export function usePullRequests(repoSlug: string) {
     [repoSlug]
   );
 
+  // ── Fetch diff ────────────────────────────────────────────────────────────
+  const fetchDiff = useCallback(
+    async (number: number): Promise<PRDiff | null> => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${number}/diff`,
+          { headers: authHeaders() }
+        );
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error ?? "Failed to fetch diff");
+        return json.data as PRDiff;
+      } catch {
+        return null;
+      }
+    },
+    [repoSlug]
+  );
+
   // ── Trigger AI Review ─────────────────────────────────────────────────────
   const triggerAIReview = useCallback(
     async (number: number): Promise<boolean> => {
@@ -364,6 +417,7 @@ export function usePullRequests(repoSlug: string) {
     actionError,
     fetchPRs,
     fetchPR,
+    fetchDiff,
     createPR,
     updatePR,
     deletePR,
