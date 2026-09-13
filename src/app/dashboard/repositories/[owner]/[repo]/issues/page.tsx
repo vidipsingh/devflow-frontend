@@ -104,8 +104,9 @@ function IssueRow({ issue, repoName }: { issue: Issue; repoName: string }) {
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default function IssuesPage({ params }: { params: Promise<{ name: string }> }) {
-  const { name } = use(params);
+export default function IssuesPage({ params }: { params: Promise<{ owner: string; repo: string }> }) {
+  const { owner, repo } = use(params);
+  const name = `${owner}/${repo}`;
   const { issues, total, loading, error, fetchIssues } = useIssues(name);
 
   const [tab, setTab] = useState<"open" | "closed">("open");

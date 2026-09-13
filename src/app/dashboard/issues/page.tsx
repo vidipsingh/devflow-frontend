@@ -3,23 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
-
-function getToken() {
-  try {
-    return typeof window !== "undefined" ? localStorage.getItem("devflow_token") : null;
-  } catch {
-    return null;
-  }
-}
-
-function authHeaders(): HeadersInit {
-  const token = getToken();
-  return token
-    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-    : { "Content-Type": "application/json" };
-}
+import { apiFetch } from "@/lib/apiFetch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface IssueLabel {
@@ -31,6 +15,7 @@ interface Issue {
   id: string;
   number: number;
   repoSlug: string;
+  repoFullName?: string;  // owner/repo — used for navigation
   title: string;
   state: "open" | "closed";
   authorName: string;
@@ -46,6 +31,7 @@ interface Repo {
   id: string;
   name: string;
   slug: string;
+  fullName?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -93,7 +79,7 @@ function IssueRow({ issue }: { issue: Issue }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2 flex-wrap">
           <Link
-            href={`/dashboard/repositories/${issue.repoSlug}/issues/${issue.number}`}
+            href={`/dashboard/repositories/${issue.repoFullName ?? issue.repoSlug}/issues/${issue.number}`}
             className="text-sm font-medium text-white/90 hover:text-indigo-300 transition-colors leading-snug"
           >
             {issue.title}
@@ -108,10 +94,10 @@ function IssueRow({ issue }: { issue: Issue }) {
         </div>
         <p className="text-white/35 text-xs mt-1">
           <Link
-            href={`/dashboard/repositories/${issue.repoSlug}`}
+            href={`/dashboard/repositories/${issue.repoFullName ?? issue.repoSlug}`}
             className="text-indigo-400/70 hover:text-indigo-300 transition-colors mr-1"
           >
-            {issue.repoSlug}
+            {issue.repoFullName ?? issue.repoSlug}
           </Link>
           #{issue.number} · opened {timeAgo(issue.createdAt)} by{" "}
           <span className="text-white/50">{issue.authorName}</span>
@@ -147,8 +133,7 @@ export default function GlobalIssuesPage() {
   useEffect(() => {
     const fetchRepos = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/v1/repositories`, { headers: authHeaders() });
-        const json = await res.json();
+        const json = await apiFetch<{ success: boolean; data: { repositories: Repo[] } }>("/api/v1/repositories");
         if (json.success) setRepos(json.data?.repositories ?? []);
       } catch {/* ignore */}
     };
@@ -161,20 +146,25 @@ export default function GlobalIssuesPage() {
     setError(null);
 
     try {
-      const slugsToFetch = selectedRepo === "all"
-        ? repos.map((r) => r.slug ?? r.name)
-        : [selectedRepo];
+      const reposToFetch = selectedRepo === "all"
+        ? repos
+        : repos.filter((r) => (r.slug ?? r.name) === selectedRepo);
 
       // Fetch issues from all selected repos in parallel
       const results = await Promise.all(
-        slugsToFetch.map(async (slug) => {
+        reposToFetch.map(async (repo) => {
+          const slug = repo.slug ?? repo.name;
           const params = new URLSearchParams({ state: tab, page: String(page), limit: String(LIMIT) });
-          const res = await fetch(`${API_BASE}/api/v1/repositories/${slug}/issues?${params}`, {
-            headers: authHeaders(),
-          });
-          const json = await res.json();
-          if (!json.success) return { issues: [], total: 0 };
-          return { issues: (json.data?.issues ?? []) as Issue[], total: (json.data?.total ?? 0) as number };
+          const json = await apiFetch<{ success: boolean; data: { issues: Issue[]; total: number } }>(
+            `/api/v1/repositories/${slug}/issues?${params}`
+          );
+          if (!json.success) return { issues: [] as Issue[], total: 0 };
+          // Tag each issue with the repo's fullName for navigation
+          const issues = (json.data?.issues ?? []).map((iss) => ({
+            ...iss,
+            repoFullName: repo.fullName ?? slug,
+          }));
+          return { issues, total: (json.data?.total ?? 0) as number };
         })
       );
 

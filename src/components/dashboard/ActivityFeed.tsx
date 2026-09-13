@@ -11,6 +11,8 @@ interface ActivityItem {
   id: string;
   type: ActivityType;
   repo: string;
+  /** owner~slug URL segment — used for navigation links */
+  repoUrl: string;
   message: string;
   time: string;       // relative e.g. "2m ago"
   timestamp: number;  // unix ms for sorting
@@ -127,7 +129,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
             <>
               {" "}
               <Link
-                href={`/dashboard/repositories/${item.repo}`}
+                href={`/dashboard/repositories/${item.repoUrl}`}
                 className="text-indigo-400 font-medium hover:text-indigo-300 hover:underline transition-colors"
               >
                 {item.repo}
@@ -198,7 +200,7 @@ export default function ActivityFeed() {
       });
       if (!reposRes.ok) { setLoading(false); return; }
       const reposJson = await reposRes.json();
-      const repos: { name: string }[] = reposJson?.data?.repositories ?? [];
+      const repos: { name: string; fullName?: string }[] = reposJson?.data?.repositories ?? [];
 
       // 2. Fetch commits for up to 8 repos in parallel
       const allItems: ActivityItem[] = [];
@@ -223,10 +225,12 @@ export default function ActivityFeed() {
             }[] = j?.data?.commits ?? [];
 
             commits.forEach((c) => {
+              const repoUrl = repo.fullName ?? repo.name;
               allItems.push({
                 id: c.id,
                 type: "push",
                 repo: repo.name,
+                repoUrl,
                 message: c.message,
                 time: relativeTime(c.createdAt),
                 timestamp: new Date(c.createdAt).getTime(),

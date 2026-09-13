@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Star,
   GitFork,
@@ -44,8 +45,12 @@ function CIBadge({ status }: { status: Repository["ciStatus"] }) {
 }
 
 export default function RepoGridCard({ repo, isPinned, onTogglePin, onEdit, onDelete }: Props) {
+  const router = useRouter();
   return (
-    <div className="group relative flex flex-col rounded-2xl border border-white/8 bg-gradient-to-b from-[#111117] to-[#0d0d12] transition-all duration-200 hover:border-indigo-500/30 hover:shadow-[0_0_24px_-4px_rgba(99,102,241,0.18)] overflow-hidden">
+    <div
+      className="group relative flex flex-col rounded-2xl border border-white/8 bg-gradient-to-b from-[#111117] to-[#0d0d12] transition-all duration-200 hover:border-indigo-500/30 hover:shadow-[0_0_24px_-4px_rgba(99,102,241,0.18)] overflow-hidden cursor-pointer"
+      onClick={() => router.push(`/dashboard/repositories/${repo.fullName}`)}
+    >
       {/* top glow on hover */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
@@ -90,7 +95,7 @@ export default function RepoGridCard({ repo, isPinned, onTogglePin, onEdit, onDe
 
           {/* Pin button — always visible */}
           <button
-            onClick={() => onTogglePin(repo.id)}
+            onClick={(e) => { e.stopPropagation(); onTogglePin(repo.id); }}
             title={isPinned ? "Unpin" : "Pin"}
             className={`flex-shrink-0 p-1.5 rounded-lg transition-all cursor-pointer ${
               isPinned
@@ -156,7 +161,7 @@ export default function RepoGridCard({ repo, isPinned, onTogglePin, onEdit, onDe
         {/* Right: edit, delete, view */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => onEdit(repo)}
+            onClick={(e) => { e.stopPropagation(); onEdit(repo); }}
             title="Edit repository"
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-white/40 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all cursor-pointer"
           >
@@ -164,7 +169,7 @@ export default function RepoGridCard({ repo, isPinned, onTogglePin, onEdit, onDe
             Edit
           </button>
           <button
-            onClick={() => onDelete(repo)}
+            onClick={(e) => { e.stopPropagation(); onDelete(repo); }}
             title="Delete repository"
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
           >
@@ -172,7 +177,8 @@ export default function RepoGridCard({ repo, isPinned, onTogglePin, onEdit, onDe
             Delete
           </button>
           <Link
-            href={`/dashboard/repositories/${repo.name}`}
+            href={`/dashboard/repositories/${repo.fullName}`}
+            onClick={(e) => e.stopPropagation()}
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-white/40 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all cursor-pointer"
           >
             View →

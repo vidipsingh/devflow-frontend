@@ -2,7 +2,7 @@
 "use client";
 
 import { use, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { usePullRequests, PRLabel } from "@/hooks/usePullRequests";
 import { useRepoDetail } from "@/hooks/useRepoDetail";
@@ -18,29 +18,58 @@ const PRESET_LABELS: PRLabel[] = [
   { name: "good first issue", color: "7057ff" },
 ];
 
-export default function NewPRPage({ params }: { params: Promise<{ name: string }> }) {
-  const { name } = use(params);
+export default function NewPRPage({ params }: { params: Promise<{ owner: string; repo: string }> }) {
+  const { owner, repo: repoParam } = use(params);
+  const name = `${owner}/${repoParam}`;
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { createPR, actionLoading, actionError, setActionError } = usePullRequests(name);
-  const { repo } = useRepoDetail(name);
+
+  // URL params from "Compare & pull request" banner
+  const qHeadRepoId   = searchParams.get("headRepoId") ?? "";
+  const qHeadBranch   = searchParams.get("headBranch") ?? "";
+  const qBaseBranch   = searchParams.get("baseBranch") ?? "";
+  const qFromFork     = searchParams.get("fromFork") ?? "";   // "owner/repo" display label
+
+  // Base repo (the upstream / target)
+  const { repo: baseRepo } = useRepoDetail(name);
+  // Fork repo — only loaded when arriving via compare banner (to get fork's branch list)
+  const { repo: forkRepo } = useRepoDetail(qFromFork || name);
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [headBranch, setHeadBranch] = useState("");
-  const [baseBranch, setBaseBranch] = useState("");
+  const [headBranch, setHeadBranch] = useState(qHeadBranch);
+  const [baseBranch, setBaseBranch] = useState(qBaseBranch);
   const [isDraft, setIsDraft] = useState(false);
   const [selectedLabels, setSelectedLabels] = useState<PRLabel[]>([]);
   const [labelPickerOpen, setLabelPickerOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  // Pre-fill base branch from repo default
+  // Pre-fill base branch from repo default (only if not set via URL)
   useEffect(() => {
-    if (repo?.defaultBranch && !baseBranch) {
-      setBaseBranch(repo.defaultBranch);
+    if (baseRepo?.defaultBranch && !baseBranch) {
+      setBaseBranch(baseRepo.defaultBranch);
     }
-  }, [repo, baseBranch]);
+  }, [baseRepo, baseBranch]);
 
-  const branches = repo?.branches ?? [];
+  // Pre-fill title when arriving from fork compare
+  useEffect(() => {
+    if (qFromFork && qHeadBranch && !title) {
+      setTitle(`Merge ${qHeadBranch} from ${qFromFork}`);
+    }
+  // only run once
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Base branches (upstream repo)
+  const baseBranches = baseRepo?.branches ?? [];
+
+  // Head branches — when cross-repo PR, use the fork's branch list;
+  // otherwise fall back to base repo's branches (same-repo PR).
+  const forkBranches = qFromFork ? (forkRepo?.branches ?? []) : [];
+  const headBranches = qFromFork
+    ? Array.from(new Set(qHeadBranch ? [qHeadBranch, ...forkBranches] : forkBranches))
+    : baseBranches;
 
   function toggleLabel(label: PRLabel) {
     setSelectedLabels((prev) =>
@@ -55,7 +84,10 @@ export default function NewPRPage({ params }: { params: Promise<{ name: string }
     setActionError(null);
     if (!title.trim()) return;
     if (!headBranch || !baseBranch) return;
-    if (headBranch === baseBranch) {
+    // For same-repo PRs, head and base must differ.
+    // For cross-repo PRs (headRepoId set), same branch name is fine
+    // e.g. fork:main → upstream:main is a valid cross-repo PR.
+    if (!qHeadRepoId && headBranch === baseBranch) {
       setActionError("Head and base branches must be different.");
       return;
     }
@@ -64,6 +96,7 @@ export default function NewPRPage({ params }: { params: Promise<{ name: string }
       title: title.trim(),
       body: body.trim(),
       headBranch,
+      ...(qHeadRepoId ? { headRepoId: qHeadRepoId } : {}),
       baseBranch,
       isDraft,
       labels: selectedLabels,
@@ -104,6 +137,24 @@ export default function NewPRPage({ params }: { params: Promise<{ name: string }
           </p>
         </div>
 
+        {/* ── Cross-repo notice (from fork compare) ──────────────────────── */}
+        {qFromFork && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/[0.08] border border-amber-500/25 text-sm text-amber-300/90">
+            <svg className="w-4 h-4 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg>
+            <span>
+              Comparing changes from fork&nbsp;
+              <span className="font-mono font-medium text-amber-200">{qFromFork}</span>
+              &nbsp;·&nbsp;branch&nbsp;
+              <span className="font-mono font-medium text-amber-200">{qHeadBranch}</span>
+              &nbsp;→ base&nbsp;
+              <span className="font-mono font-medium text-amber-200">{name}</span>
+            </span>
+          </div>
+        )}
+
         {/* ── Branch comparison bar ───────────────────────────────────────── */}
         <div className="flex items-center gap-3 flex-wrap bg-[#0d0d14] border border-white/[0.08] rounded-xl p-4">
           <div className="flex items-center gap-2 text-sm text-white/50">
@@ -118,7 +169,7 @@ export default function NewPRPage({ params }: { params: Promise<{ name: string }
             className="bg-[#111117] border border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-white/80 focus:outline-none focus:border-indigo-400/40 cursor-pointer"
           >
             <option value="">Select base branch</option>
-            {branches.map((b) => (
+            {baseBranches.map((b) => (
               <option key={b} value={b}>{b}</option>
             ))}
           </select>
@@ -136,7 +187,7 @@ export default function NewPRPage({ params }: { params: Promise<{ name: string }
             className="bg-[#111117] border border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-white/80 focus:outline-none focus:border-indigo-400/40 cursor-pointer"
           >
             <option value="">Select head branch</option>
-            {branches.map((b) => (
+            {headBranches.map((b) => (
               <option key={b} value={b}>{b}</option>
             ))}
           </select>

@@ -3,23 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
-
-function getToken() {
-  try {
-    return typeof window !== "undefined" ? localStorage.getItem("devflow_token") : null;
-  } catch {
-    return null;
-  }
-}
-
-function authHeaders(): HeadersInit {
-  const token = getToken();
-  return token
-    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-    : { "Content-Type": "application/json" };
-}
+import { apiFetch } from "@/lib/apiFetch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PRLabel {
@@ -31,6 +15,7 @@ interface PullRequest {
   id: string;
   number: number;
   repoSlug: string;
+  repoFullName?: string;  // owner/repo — used for navigation
   title: string;
   state: "open" | "closed" | "merged";
   authorName: string;
@@ -50,6 +35,7 @@ interface Repo {
   id: string;
   name: string;
   slug: string;
+  fullName?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -97,7 +83,7 @@ function PRRow({ pr }: { pr: PullRequest }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2 flex-wrap">
           <Link
-            href={`/dashboard/repositories/${pr.repoSlug}/pulls/${pr.number}`}
+            href={`/dashboard/repositories/${pr.repoFullName ?? pr.repoSlug}/pulls/${pr.number}`}
             className="text-sm font-medium text-white/90 hover:text-indigo-300 transition-colors leading-snug"
           >
             {pr.title}
@@ -122,10 +108,10 @@ function PRRow({ pr }: { pr: PullRequest }) {
         </div>
         <p className="text-white/30 text-xs mt-1">
           <Link
-            href={`/dashboard/repositories/${pr.repoSlug}/pulls`}
+            href={`/dashboard/repositories/${pr.repoFullName ?? pr.repoSlug}/pulls`}
             className="text-indigo-400/70 hover:text-indigo-300 transition-colors"
           >
-            {pr.repoSlug}
+            {pr.repoFullName ?? pr.repoSlug}
           </Link>
           <span className="mx-1 text-white/15">·</span>
           #{pr.number}
@@ -181,8 +167,7 @@ export default function GlobalPullsPage() {
   const fetchRepos = useCallback(async () => {
     setReposLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/repositories`, { headers: authHeaders() });
-      const json = await res.json();
+      const json = await apiFetch<{ success: boolean; data: { repositories: Repo[] } }>("/api/v1/repositories");
       if (json.success) setRepos(json.data?.repositories ?? []);
     } catch {
       // ignore
@@ -203,15 +188,17 @@ export default function GlobalPullsPage() {
       const results = await Promise.all(
         targets.map(async (repo) => {
           try {
-            const res = await fetch(
-              `${API_BASE}/api/v1/repositories/${repo.slug}/pulls?state=${tab}`,
-              { headers: authHeaders() }
+            const json = await apiFetch<{ success: boolean; data: { pullRequests: PullRequest[] } }>(
+              `/api/v1/repositories/${repo.slug}/pulls?state=${tab}`
             );
-            const json = await res.json();
-            if (!json.success) return [];
-            return (json.data?.pullRequests ?? []) as PullRequest[];
+            if (!json.success) return [] as PullRequest[];
+            // Tag each PR with the repo's fullName for navigation
+            return (json.data?.pullRequests ?? []).map((pr) => ({
+              ...pr,
+              repoFullName: repo.fullName ?? repo.slug,
+            })) as PullRequest[];
           } catch {
-            return [];
+            return [] as PullRequest[];
           }
         })
       );
@@ -371,7 +358,7 @@ export default function GlobalPullsPage() {
               </div>
               {repos.length > 0 && tab === "open" && (
                 <Link
-                  href={`/dashboard/repositories/${repos[0]?.slug}/pulls/new`}
+                  href={`/dashboard/repositories/${repos[0]?.fullName ?? repos[0]?.slug ?? ""}/pulls/new`}
                   className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
                 >
                   Open a pull request →
@@ -394,7 +381,7 @@ export default function GlobalPullsPage() {
             {repos.slice(0, 8).map((r) => (
               <Link
                 key={r.id}
-                href={`/dashboard/repositories/${r.slug}/pulls`}
+                href={`/dashboard/repositories/${r.fullName ?? r.slug}/pulls`}
                 className="text-xs px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.07] text-white/40 hover:text-white/70 hover:border-white/20 transition-colors"
               >
                 {r.name}

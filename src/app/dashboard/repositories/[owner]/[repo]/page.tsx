@@ -2,16 +2,30 @@
 "use client";
 
 import { use, useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useRepoDetail } from "@/hooks/useRepoDetail";
 import { UploadFileModal } from "@/components/repositories/UploadFileModal";
 import { useIssues, Issue, IssueLabel } from "@/hooks/useIssues";
 import { usePullRequests, PullRequest, PRLabel } from "@/hooks/usePullRequests";
+import { apiFetch } from "@/lib/apiFetch";
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 function getToken() {
   try { return typeof window !== "undefined" ? localStorage.getItem("devflow_token") : null; }
   catch { return null; }
+}
+
+// ─── Decode current user id from JWT (no verify — display only) ───────────────
+function currentUserId(): string | null {
+  try {
+    const token = getToken();
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.userId ?? payload.sub ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Language colour dot ──────────────────────────────────────────────────────
@@ -135,9 +149,10 @@ const TABS = [
 export default function RepositoryDetailPage({
   params,
 }: {
-  params: Promise<{ name: string }>;
+  params: Promise<{ owner: string; repo: string }>;
 }) {
-  const { name } = use(params);
+  const { owner, repo: repoSlug } = use(params);
+  const name = `${owner}/${repoSlug}`;
   const {
     repo, tree, commits, activeBlob,
     currentPath, currentBranch,
@@ -146,10 +161,58 @@ export default function RepositoryDetailPage({
     navigateTo, openBlob, closeBlob, switchBranch, uploadFile,
   } = useRepoDetail(name);
 
+  const router = useRouter();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"code" | "issues" | "pulls" | "commits">("code");
   const [cloneOpen, setCloneOpen] = useState(false);
   const [cloneCopied, setCloneCopied] = useState(false);
+
+  // ── Fork state ────────────────────────────────────────────────────────────
+  const [isForking, setIsForking] = useState(false);
+  const [forkError, setForkError] = useState<string | null>(null);
+
+  const handleFork = useCallback(async () => {
+    if (!repo || isForking) return;
+    setIsForking(true);
+    setForkError(null);
+    try {
+      const json = await apiFetch<{ data: { slug: string; fullName?: string } }>(
+        `/api/v1/repositories/${repo.slug}/fork`,
+        { method: "POST", body: JSON.stringify({}) }
+      );
+      // Use fullName ("owner/slug") when available — navigate to owner/repo URL.
+      // Use window.location.href (full reload) so the page always remounts.
+      const fullName = json.data?.fullName;
+      const dest = fullName ?? json.data?.slug ?? repo.slug;
+      window.location.href = `/dashboard/repositories/${dest}`;
+    } catch (e) {
+      setForkError(e instanceof Error ? e.message : "Fork failed");
+      setIsForking(false);
+    }
+  }, [repo, isForking]);
+
+  // Determine if current user owns this repo (to hide Fork button on own repos)
+  const myId = currentUserId();
+  const isOwner = !!(repo && myId && repo.ownerId === myId);
+
+  // ── Forks list (for "Compare & pull request" banner on original repo) ─────
+  interface ForkSummary {
+    id: string;
+    fullName: string;
+    ownerName: string;
+    slug: string;
+    defaultBranch: string;
+    stats: { openPRs: number };
+  }
+  const [forks, setForks] = useState<ForkSummary[]>([]);
+  useEffect(() => {
+    if (!repo || repo.isFork) return; // only fetch forks for the upstream repo
+    apiFetch<{ data: { forks: ForkSummary[] } }>(
+      `/api/v1/repositories/${encodeURIComponent(name).replace("%2F", "~")}/forks`
+    )
+      .then((json) => setForks(json.data?.forks ?? []))
+      .catch(() => {/* ignore */});
+  }, [repo, name]);
 
   // ── Issues inline state ───────────────────────────────────────────────────
   const { issues, total: issuesTotal, loading: issuesLoading, error: issuesError, fetchIssues } = useIssues(name);
@@ -193,14 +256,11 @@ export default function RepositoryDetailPage({
   const fetchStarStatus = useCallback(async () => {
     if (!name) return;
     try {
-      const res = await fetch(`${API_BASE}/api/v1/repositories/${name}/star`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setStarred(data.data?.starred ?? false);
-        setStarCount(data.data?.stars ?? null);
-      }
+      const data = await apiFetch<{ data: { starred: boolean; stars: number } }>(
+        `/api/v1/repositories/${encodeURIComponent(name).replace("%2F", "~")}/star`
+      );
+      setStarred(data.data?.starred ?? false);
+      setStarCount(data.data?.stars ?? null);
     } catch { /* ignore */ }
   }, [name]);
 
@@ -217,10 +277,8 @@ export default function RepositoryDetailPage({
     setStarCount((prev) => (prev ?? repo.stats.stars) + delta);
     setIsStarring(true);
     try {
-      const token = getToken();
-      await fetch(`${API_BASE}/api/v1/repositories/${repo.slug ?? name}/star`, {
+      await apiFetch(`/api/v1/repositories/${encodeURIComponent(repo.slug ?? name).replace("%2F", "~")}/star`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ star: nextStarred }),
       });
     } catch {
@@ -287,6 +345,107 @@ export default function RepositoryDetailPage({
 
         {/* ── Repo header ────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#111117] to-[#0d0d12] p-5">
+
+          {/* "Forked from" banner */}
+          {repo.isFork && repo.forkedFromOwner && repo.forkedFromSlug && (
+            <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-violet-500/[0.07] border border-violet-500/20 text-sm text-violet-300/80">
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span>Forked from&nbsp;</span>
+              <Link
+                href={`/dashboard/repositories/${repo.forkedFromOwner}/${repo.forkedFromSlug}`}
+                className="font-medium text-violet-300 hover:text-violet-200 transition-colors underline underline-offset-2"
+              >
+                {repo.forkedFromOwner}/{repo.forkedFromSlug}
+              </Link>
+            </div>
+          )}
+
+          {/* ── "Compare & pull request" banner (fork → upstream) ──────────
+               Shown when THIS repo is a fork — one click opens a PR against
+               the upstream repo with everything pre-filled.                  */}
+          {repo.isFork && repo.forkedFromOwner && repo.forkedFromSlug && commits.length > 0 && isOwner &&
+            !prs.some((p) => p.state === "open" && p.headBranch === currentBranch) && (
+            <div className="flex items-center justify-between gap-3 mb-2 px-4 py-3 rounded-xl bg-amber-500/[0.08] border border-amber-500/25 text-sm">
+              <div className="flex items-center gap-3 min-w-0">
+                <svg className="w-4 h-4 shrink-0 text-amber-400" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
+                </svg>
+                <span className="text-amber-200/90 truncate">
+                  <span className="font-medium">{currentBranch}</span>
+                  &nbsp;has commits — open a pull request to merge into&nbsp;
+                  <span className="font-medium">{repo.forkedFromOwner}/{repo.forkedFromSlug}</span>
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  const upstream = `${repo.forkedFromOwner}/${repo.forkedFromSlug}`;
+                  const params = new URLSearchParams({
+                    headRepoId: repo.id,
+                    headBranch: currentBranch,
+                    baseBranch: repo.defaultBranch ?? "main",
+                    fromFork: name,
+                  });
+                  router.push(`/dashboard/repositories/${upstream}/pulls/new?${params}`);
+                }}
+                className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-xs font-medium transition-all cursor-pointer whitespace-nowrap"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+                Compare &amp; pull request
+              </button>
+            </div>
+          )}
+
+          {/* ── "Compare & pull request" banners (upstream repo → its forks) ─
+               Shown for each fork of THIS upstream repo that has commits, so
+               the original repo owner can also initiate a cross-fork PR.      */}
+          {!repo.isFork && isOwner && forks.length > 0 && forks.filter(
+            (fork) => !prs.some((p) => p.state === "open" && p.headBranch === fork.defaultBranch)
+          ).map((fork) => (
+            <div key={fork.id} className="flex items-center justify-between gap-3 mb-2 px-4 py-3 rounded-xl bg-amber-500/[0.08] border border-amber-500/25 text-sm">
+              <div className="flex items-center gap-3 min-w-0">
+                <svg className="w-4 h-4 shrink-0 text-amber-400" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
+                </svg>
+                <span className="text-amber-200/90 truncate">
+                  Fork&nbsp;<span className="font-mono font-medium">{fork.fullName}</span>
+                  &nbsp;has commits on&nbsp;
+                  <span className="font-medium">{fork.defaultBranch}</span>
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  const params = new URLSearchParams({
+                    headRepoId: fork.id,
+                    headBranch: fork.defaultBranch ?? "main",
+                    baseBranch: repo.defaultBranch ?? "main",
+                    fromFork: fork.fullName,
+                  });
+                  router.push(`/dashboard/repositories/${name}/pulls/new?${params}`);
+                }}
+                className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-xs font-medium transition-all cursor-pointer whitespace-nowrap"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+                Compare &amp; pull request
+              </button>
+            </div>
+          ))}
+
+          {forkError && (
+            <div className="mb-3 flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {forkError}
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="space-y-2.5">
               {/* Name + badges */}
@@ -321,8 +480,27 @@ export default function RepositoryDetailPage({
               )}
             </div>
 
-            {/* Stats + interactive star */}
+            {/* Stats + interactive star + fork */}
             <div className="flex items-center gap-3 shrink-0 flex-wrap">
+              {/* Fork button — visible only when we don't own the repo */}
+              {!isOwner && (
+                <button
+                  onClick={handleFork}
+                  disabled={isForking}
+                  title={isForking ? "Forking…" : "Fork this repository"}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/[0.18] text-sm font-medium transition-all disabled:opacity-60 cursor-pointer"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                  {isForking ? "Forking…" : "Fork"}
+                  <span className="text-xs px-1.5 py-0.5 rounded-md bg-violet-500/20 text-violet-300 ml-0.5">
+                    {repo.stats.forks}
+                  </span>
+                </button>
+              )}
+
               {/* Star button — GitHub style */}
               <button
                 onClick={handleStar}

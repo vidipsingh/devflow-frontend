@@ -1,20 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { apiFetch, getToken } from "@/lib/apiFetch";
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
-const WS_BASE  = API_BASE.replace(/^http/, "ws");
-
-function getToken() {
-  try { return typeof window !== "undefined" ? localStorage.getItem("devflow_token") : null; }
-  catch { return null; }
-}
-function authHeaders(): HeadersInit {
-  const t = getToken();
-  return t
-    ? { "Content-Type": "application/json", Authorization: `Bearer ${t}` }
-    : { "Content-Type": "application/json" };
-}
+const WS_BASE = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/^http/, "ws");
 
 /** Parse userId + userName from JWT synchronously — avoids useEffect race */
 function parseJwt(): { userId: string; userName: string } {
@@ -71,12 +60,9 @@ export function useReviewSessions(repoId: string, prId: string) {
     if (!repoId || !prId) return;
     setLoading(true); setError(null);
     try {
-      const res  = await fetch(
-        `${API_BASE}/api/v1/repos/${repoId}/pulls/${prId}/review-sessions`,
-        { headers: authHeaders() }
+      const json = await apiFetch<{ data: ReviewSession[] }>(
+        `/api/v1/repos/${repoId}/pulls/${prId}/review-sessions`
       );
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to fetch");
       setSessions(json.data ?? []);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Unknown error");
@@ -85,13 +71,11 @@ export function useReviewSessions(repoId: string, prId: string) {
 
   const create = useCallback(async (): Promise<ReviewSession | null> => {
     try {
-      const res  = await fetch(
-        `${API_BASE}/api/v1/repos/${repoId}/pulls/${prId}/review-sessions`,
-        { method: "POST", headers: authHeaders() }
+      const json = await apiFetch<{ data: ReviewSession }>(
+        `/api/v1/repos/${repoId}/pulls/${prId}/review-sessions`,
+        { method: "POST" }
       );
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to create");
-      const sess: ReviewSession = json.data;
+      const sess = json.data;
       setSessions(prev => [sess, ...prev]);
       return sess;
     } catch (e: unknown) {
@@ -102,11 +86,10 @@ export function useReviewSessions(repoId: string, prId: string) {
 
   const end = useCallback(async (sessionId: string) => {
     try {
-      const res = await fetch(
-        `${API_BASE}/api/v1/repos/${repoId}/pulls/${prId}/review-sessions/${sessionId}/end`,
-        { method: "POST", headers: authHeaders() }
+      await apiFetch(
+        `/api/v1/repos/${repoId}/pulls/${prId}/review-sessions/${sessionId}/end`,
+        { method: "POST" }
       );
-      if (!res.ok) throw new Error("Failed to end session");
       setSessions(prev =>
         prev.map(s => s.id === sessionId ? { ...s, status: "ended" as const } : s)
       );

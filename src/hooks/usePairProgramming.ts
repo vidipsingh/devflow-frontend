@@ -2,26 +2,11 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { apiFetch, getToken } from "@/lib/apiFetch";
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 const WS_BASE = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "")
   .replace(/^https/, "wss")
   .replace(/^http/, "ws");
-
-function getToken() {
-  try {
-    return typeof window !== "undefined" ? localStorage.getItem("devflow_token") : null;
-  } catch {
-    return null;
-  }
-}
-
-function authHeaders(): HeadersInit {
-  const token = getToken();
-  return token
-    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-    : { "Content-Type": "application/json" };
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -172,9 +157,7 @@ export function usePairSessions() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/pair-sessions`, { headers: authHeaders() });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed to fetch sessions");
+      const json = await apiFetch<{ data: PairSession[] }>("/api/v1/pair-sessions");
       setSessions(json.data ?? []);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Unknown error");
@@ -187,14 +170,11 @@ export function usePairSessions() {
     async (repoId: string, filePath: string, document: string): Promise<PairSession | null> => {
       setError(null);
       try {
-        const res = await fetch(`${API_BASE}/api/v1/pair-sessions`, {
+        const json = await apiFetch<{ data: PairSession }>("/api/v1/pair-sessions", {
           method: "POST",
-          headers: authHeaders(),
           body: JSON.stringify({ repoId, filePath, document }),
         });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error ?? "Failed to create session");
-        const sess: PairSession = json.data;
+        const sess = json.data;
         setSessions((prev) => [sess, ...prev]);
         return sess;
       } catch (e: unknown) {
@@ -208,13 +188,10 @@ export function usePairSessions() {
   const joinSession = useCallback(async (sessionId: string): Promise<PairSession | null> => {
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/pair-sessions/${sessionId}/join`, {
-        method: "POST",
-        headers: authHeaders(),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed to join session");
-      return json.data as PairSession;
+      const json = await apiFetch<{ data: PairSession }>(
+        `/api/v1/pair-sessions/${sessionId}/join`, { method: "POST" }
+      );
+      return json.data;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Unknown error");
       return null;
@@ -224,12 +201,7 @@ export function usePairSessions() {
   const endSession = useCallback(async (sessionId: string): Promise<boolean> => {
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/pair-sessions/${sessionId}/end`, {
-        method: "POST",
-        headers: authHeaders(),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed to end session");
+      await apiFetch(`/api/v1/pair-sessions/${sessionId}/end`, { method: "POST" });
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, status: "ended" as const } : s))
       );
@@ -242,12 +214,8 @@ export function usePairSessions() {
 
   const getSession = useCallback(async (sessionId: string): Promise<PairSession | null> => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/pair-sessions/${sessionId}`, {
-        headers: authHeaders(),
-      });
-      const json = await res.json();
-      if (!res.ok) return null;
-      return json.data as PairSession;
+      const json = await apiFetch<{ data: PairSession }>(`/api/v1/pair-sessions/${sessionId}`);
+      return json.data;
     } catch {
       return null;
     }

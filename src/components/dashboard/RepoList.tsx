@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Repository, SortKey, UseRepositoryReturn } from "@/hooks/useRepository";
 
 
@@ -49,8 +50,12 @@ function RepoCard({
   pinned: boolean;
   onTogglePin: () => void;
 }) {
+  const router = useRouter();
   return (
-    <div className="group relative rounded-2xl border border-white/[0.07] bg-[#0f0f14] hover:border-white/[0.12] hover:bg-[#111116] transition-all duration-200 p-4">
+    <div
+      className="group relative rounded-2xl border border-white/[0.07] bg-[#0f0f14] hover:border-white/[0.12] hover:bg-[#111116] transition-all duration-200 p-4 cursor-pointer"
+      onClick={() => router.push(`/dashboard/repositories/${repo.fullName}`)}
+    >
       {/* Header row */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -64,8 +69,9 @@ function RepoCard({
             </svg>
           )}
           <Link
-            href={`/dashboard/repositories/${repo.name}`}
+            href={`/dashboard/repositories/${repo.fullName}`}
             className="text-sm font-semibold text-white hover:text-indigo-300 transition-colors truncate"
+            onClick={(e) => e.stopPropagation()}
           >
             {repo.name}
           </Link>
@@ -80,7 +86,7 @@ function RepoCard({
 
         {/* Pin button */}
         <button
-          onClick={onTogglePin}
+          onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
           title={pinned ? "Unpin" : "Pin"}
           className={`flex-shrink-0 p-1 rounded-lg transition-all ${
             pinned

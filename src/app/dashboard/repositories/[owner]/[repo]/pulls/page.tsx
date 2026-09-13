@@ -119,8 +119,9 @@ function PRRow({ pr, repoName }: { pr: PullRequest; repoName: string }) {
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default function PullsPage({ params }: { params: Promise<{ name: string }> }) {
-  const { name } = use(params);
+export default function PullsPage({ params }: { params: Promise<{ owner: string; repo: string }> }) {
+  const { owner, repo } = use(params);
+  const name = `${owner}/${repo}`;
   const { prs, total, loading, error, fetchPRs } = usePullRequests(name);
 
   const [tab, setTab] = useState<"open" | "closed" | "merged">("open");

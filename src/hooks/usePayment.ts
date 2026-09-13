@@ -2,16 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
-
-function getToken(): string | null {
-  try {
-    return typeof window !== "undefined" ? localStorage.getItem("devflow_token") : null;
-  } catch {
-    return null;
-  }
-}
+import { apiFetch, getToken } from "@/lib/apiFetch";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,29 +84,17 @@ export function usePayment(): UsePaymentReturn {
           return;
         }
 
-        const token = getToken();
-        if (!token) {
+        if (!getToken()) {
           setError("Not authenticated.");
           return;
         }
 
-        // Step 1 — Create order on backend
-        const orderRes = await fetch(`${API_BASE}/api/v1/payments/orders`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ planKey }),
-        });
-
-        if (!orderRes.ok) {
-          const j = await orderRes.json().catch(() => ({}));
-          setError(j.error ?? "Failed to create payment order.");
-          return;
-        }
-
-        const { data: order } = await orderRes.json();
+        // Step 1 — Create order on backend (apiFetch handles 401 → redirect)
+        const orderJson = await apiFetch<{ data: { orderId: string; amount: number; currency: string; keyId: string } }>(
+          "/api/v1/payments/orders",
+          { method: "POST", body: JSON.stringify({ planKey }) }
+        );
+        const order = orderJson.data;
         // order = { orderId, amount, currency, keyId }
 
         // Step 2 — Open Razorpay checkout
@@ -142,26 +121,17 @@ export function usePayment(): UsePaymentReturn {
             }) => {
               // Step 3 — Verify on backend
               try {
-                const verifyRes = await fetch(`${API_BASE}/api/v1/payments/verify`, {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    razorpayOrderId:   response.razorpay_order_id,
-                    razorpayPaymentId: response.razorpay_payment_id,
-                    razorpaySignature: response.razorpay_signature,
-                  }),
-                });
-
-                if (!verifyRes.ok) {
-                  const j = await verifyRes.json().catch(() => ({}));
-                  reject(new Error(j.error ?? "Payment verification failed."));
-                  return;
-                }
-
-                const verifyData = await verifyRes.json();
+                const verifyData = await apiFetch<{ message?: string }>(
+                  "/api/v1/payments/verify",
+                  {
+                    method: "POST",
+                    body: JSON.stringify({
+                      razorpayOrderId:   response.razorpay_order_id,
+                      razorpayPaymentId: response.razorpay_payment_id,
+                      razorpaySignature: response.razorpay_signature,
+                    }),
+                  }
+                );
                 setSuccess(
                   verifyData.message ??
                     `You are now on the ${planKey.charAt(0).toUpperCase() + planKey.slice(1)} plan!`
@@ -193,18 +163,11 @@ export function usePayment(): UsePaymentReturn {
 
   // ── Fetch payment history ─────────────────────────────────────────────────
   const fetchHistory = useCallback(async () => {
+    if (!getToken()) return;
     setHistoryLoading(true);
     try {
-      const token = getToken();
-      if (!token) return;
-
-      const res = await fetch(`${API_BASE}/api/v1/payments/history`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const j = await res.json();
-        setHistory(j.data ?? []);
-      }
+      const j = await apiFetch<{ data: PaymentRecord[] }>("/api/v1/payments/history");
+      setHistory(j.data ?? []);
     } catch {
       // silently ignore
     } finally {

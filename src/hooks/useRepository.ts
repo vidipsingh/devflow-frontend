@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { apiFetch, getToken } from "@/lib/apiFetch";
 
 
 // Types
@@ -14,6 +15,8 @@ export interface Repository {
   id: string;
   name: string;
   slug: string;
+  /** "ownerUsername/slug" — used to build owner~slug nav URLs */
+  fullName: string;
   description: string;
   visibility: RepoVisibility;
   language: RepoLanguage;
@@ -58,6 +61,7 @@ interface APIRepository {
   id: string;
   name: string;
   slug: string;
+  fullName: string;
   description: string;
   visibility: string;
   language: string;
@@ -101,10 +105,12 @@ function toRelativeTime(iso: string): string {
 }
 
 function mapAPIRepo(r: APIRepository): Repository {
+  const slug = r.slug ?? r.name.toLowerCase().replace(/\s+/g, "-");
   return {
     id: r.id,
     name: r.name,
-    slug: r.slug ?? r.name.toLowerCase().replace(/\s+/g, "-"),
+    slug,
+    fullName: r.fullName ?? slug,
     description: r.description ?? "",
     visibility: (r.visibility === "private" ? "private" : "public") as RepoVisibility,
     language: (r.language || "Other") as RepoLanguage,
@@ -143,25 +149,13 @@ export function useRepository(): UseRepositoryReturn {
     setIsLoading(true);
     setError(null);
     try {
-      const token = typeof window !== "undefined"
-        ? localStorage.getItem("devflow_token")
-        : null;
-
-      if (!token) {
+      if (!getToken()) {
         setError("Not authenticated");
         setIsLoading(false);
         return;
       }
 
-      const res = await fetch(`${API_BASE}/api/v1/repositories`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        throw new Error(`Request failed: ${res.status}`);
-      }
-
-      const json = await res.json();
+      const json = await apiFetch<{ data: { repositories: APIRepository[] } }>("/api/v1/repositories");
       const raw: APIRepository[] = json?.data?.repositories ?? [];
       const mapped = raw.map(mapAPIRepo);
       setRepositories(mapped);
@@ -192,31 +186,17 @@ export function useRepository(): UseRepositoryReturn {
     );
 
     try {
-      const token = typeof window !== "undefined"
-        ? localStorage.getItem("devflow_token")
-        : null;
-      if (!token) return;
+      if (!getToken()) return;
 
-      const res = await fetch(`${API_BASE}/api/v1/repositories/${repo.slug}/pin`, {
+      await apiFetch(`/api/v1/repositories/${repo.slug}/pin`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ pinned: willBePinned }),
       });
 
-      if (!res.ok) {
-        // Rollback on failure
-        setPinnedIds((prev) =>
-          willBePinned ? prev.filter((p) => p !== id) : [...prev, id]
-        );
-      } else {
-        // Update local repository list to reflect new isPinned value
-        setRepositories((prev) =>
-          prev.map((r) => (r.id === id ? { ...r, isPinned: willBePinned } : r))
-        );
-      }
+      // Update local repository list to reflect new isPinned value
+      setRepositories((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, isPinned: willBePinned } : r))
+      );
     } catch {
       // Rollback on network error
       setPinnedIds((prev) =>

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch } from "@/lib/apiFetch";
 
 // ─── Types matching backend models ────────────────────────────────────────────
 
@@ -46,7 +47,7 @@ export interface BlobFile {
 }
 
 export interface RepoDetailMeta {
-  id: string;
+  id: string;        // MongoDB ObjectId hex string
   name: string;
   slug: string;
   fullName: string;
@@ -65,6 +66,12 @@ export interface RepoDetailMeta {
   };
   createdAt: string;
   updatedAt: string;
+  // Fork fields (populated by backend when the repo is a fork or has been forked)
+  isFork?: boolean;
+  forkedFromOwner?: string;   // username of the upstream owner
+  forkedFromSlug?: string;    // slug of the upstream repo
+  ownerId?: string;           // ObjectId string of the repo owner
+  ownerName?: string;         // username of the repo owner
 }
 
 export interface UploadFilePayload {
@@ -96,33 +103,14 @@ export interface UseRepoDetailReturn {
   refetchTree: () => void;
 }
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
-
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
-
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("devflow_token");
-}
-
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = getToken();
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: token ? `Bearer ${token}` : "",
-      ...(options?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
-
 // ─── Hook ─────────────────────────────────────────────────────────────────────
+
+// Convert "owner/repo" to "owner~repo" for the API :name param.
+// The backend's ResolveRepo detects "~" and resolves via FindRepoByFullName.
+// Plain slugs (no "/") are passed through unchanged for backward-compat.
+function encodeSlug(slug: string) {
+  return slug.replace("/", "~");
+}
 
 export function useRepoDetail(repoSlug: string): UseRepoDetailReturn {
   const [repo, setRepo] = useState<RepoDetailMeta | null>(null);
@@ -148,7 +136,7 @@ export function useRepoDetail(repoSlug: string): UseRepoDetailReturn {
     setError(null);
     try {
       const json = await apiFetch<{ success: boolean; data: RepoDetailMeta }>(
-        `/api/v1/repositories/${repoSlug}`
+        `/api/v1/repositories/${encodeSlug(repoSlug)}`
       );
       const r = json.data;
       setRepo(r);
@@ -168,7 +156,7 @@ export function useRepoDetail(repoSlug: string): UseRepoDetailReturn {
       try {
         const params = new URLSearchParams({ ref: branch, path: dirPath });
         const json = await apiFetch<{ success: boolean; data: { tree: FileTreeEntry[] } }>(
-          `/api/v1/repositories/${repoSlug}/tree?${params}`
+          `/api/v1/repositories/${encodeSlug(repoSlug)}/tree?${params}`
         );
         setTree(json.data?.tree ?? []);
       } catch {
@@ -187,7 +175,7 @@ export function useRepoDetail(repoSlug: string): UseRepoDetailReturn {
       try {
         const params = new URLSearchParams({ ref: branch, limit: "10" });
         const json = await apiFetch<{ success: boolean; data: { commits: RepoCommit[] } }>(
-          `/api/v1/repositories/${repoSlug}/commits?${params}`
+          `/api/v1/repositories/${encodeSlug(repoSlug)}/commits?${params}`
         );
         setCommits(json.data?.commits ?? []);
       } catch {
@@ -225,7 +213,7 @@ export function useRepoDetail(repoSlug: string): UseRepoDetailReturn {
       try {
         const params = new URLSearchParams({ ref: currentBranch, path: filePath });
         const json = await apiFetch<{ success: boolean; data: BlobFile }>(
-          `/api/v1/repositories/${repoSlug}/blob?${params}`
+          `/api/v1/repositories/${encodeSlug(repoSlug)}/blob?${params}`
         );
         setActiveBlob(json.data);
       } catch {
@@ -253,7 +241,7 @@ export function useRepoDetail(repoSlug: string): UseRepoDetailReturn {
       setUploadError(null);
       setUploadSuccess(false);
       try {
-        await apiFetch(`/api/v1/repositories/${repoSlug}/files`, {
+        await apiFetch(`/api/v1/repositories/${encodeSlug(repoSlug)}/files`, {
           method: "POST",
           body: JSON.stringify({
             path: payload.path,

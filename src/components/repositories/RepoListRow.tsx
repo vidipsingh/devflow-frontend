@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Star,
   GitFork,
@@ -43,16 +44,21 @@ function CIBadge({ status }: { status: Repository["ciStatus"] }) {
 }
 
 export default function RepoListRow({ repo, isPinned, onTogglePin, onEdit, onDelete }: Props) {
+  const router = useRouter();
   return (
-    <div className="group flex items-center gap-3 px-4 py-3 rounded-xl border border-white/8 bg-white/[0.02] hover:bg-white/[0.04] hover:border-indigo-500/20 transition-all">
+    <div
+      className="group flex items-center gap-3 px-4 py-3 rounded-xl border border-white/8 bg-white/[0.02] hover:bg-white/[0.04] hover:border-indigo-500/20 transition-all cursor-pointer"
+      onClick={() => router.push(`/dashboard/repositories/${repo.fullName}`)}
+    >
       {/* Language dot */}
       <span className={`flex-shrink-0 w-2.5 h-2.5 rounded-full ${repo.languageColor}`} />
 
       {/* Name + badges */}
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <Link
-          href={`/dashboard/repositories/${repo.name}`}
+          href={`/dashboard/repositories/${repo.fullName}`}
           className="text-sm font-semibold text-white hover:text-indigo-300 transition-colors truncate"
+          onClick={(e) => e.stopPropagation()}
         >
           {repo.name}
         </Link>
@@ -109,21 +115,21 @@ export default function RepoListRow({ repo, isPinned, onTogglePin, onEdit, onDel
       {/* Action buttons — always visible */}
       <div className="flex items-center gap-1 flex-shrink-0">
         <button
-          onClick={() => onEdit(repo)}
+          onClick={(e) => { e.stopPropagation(); onEdit(repo); }}
           title="Edit"
           className="p-1.5 rounded-lg text-white/35 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all cursor-pointer"
         >
           <Pencil size={13} />
         </button>
         <button
-          onClick={() => onDelete(repo)}
+          onClick={(e) => { e.stopPropagation(); onDelete(repo); }}
           title="Delete"
           className="p-1.5 rounded-lg text-white/35 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
         >
           <Trash2 size={13} />
         </button>
         <button
-          onClick={() => onTogglePin(repo.id)}
+          onClick={(e) => { e.stopPropagation(); onTogglePin(repo.id); }}
           title={isPinned ? "Unpin" : "Pin"}
           className={`p-1.5 rounded-lg transition-all cursor-pointer ${
             isPinned

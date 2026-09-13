@@ -130,8 +130,9 @@ function MarkdownEditor({
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default function NewIssuePage({ params }: { params: Promise<{ name: string }> }) {
-  const { name } = use(params);
+export default function NewIssuePage({ params }: { params: Promise<{ owner: string; repo: string }> }) {
+  const { owner, repo } = use(params);
+  const name = `${owner}/${repo}`;
   const router = useRouter();
   const { createIssue, actionLoading, actionError, setActionError } = useIssues(name);
 

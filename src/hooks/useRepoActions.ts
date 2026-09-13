@@ -2,30 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
-
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("devflow_token");
-}
-
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = getToken();
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: token ? `Bearer ${token}` : "",
-      ...(options?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error ?? `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
+import { apiFetch } from "@/lib/apiFetch";
 
 // ─── Request shapes ────────────────────────────────────────────────────────────
 
@@ -48,7 +25,7 @@ export interface UseRepoActionsReturn {
   isUpdating: boolean;
   isDeleting: boolean;
   actionError: string | null;
-  createRepo: (payload: CreateRepoPayload) => Promise<{ slug: string } | null>;
+  createRepo: (payload: CreateRepoPayload) => Promise<{ slug: string; fullName?: string } | null>;
   updateRepo: (slug: string, payload: UpdateRepoPayload) => Promise<boolean>;
   deleteRepo: (slug: string) => Promise<boolean>;
   pinRepo: (slug: string, pinned: boolean) => Promise<boolean>;
@@ -67,11 +44,11 @@ export function useRepoActions(): UseRepoActionsReturn {
 
   // Create a new repository
   const createRepo = useCallback(
-    async (payload: CreateRepoPayload): Promise<{ slug: string } | null> => {
+    async (payload: CreateRepoPayload): Promise<{ slug: string; fullName?: string } | null> => {
       setIsCreating(true);
       setActionError(null);
       try {
-        const json = await apiFetch<{ success: boolean; data: { slug: string } }>(
+        const json = await apiFetch<{ success: boolean; data: { slug: string; fullName?: string } }>(
           "/api/v1/repositories",
           {
             method: "POST",
@@ -84,7 +61,10 @@ export function useRepoActions(): UseRepoActionsReturn {
             }),
           }
         );
-        return { slug: json.data?.slug ?? payload.name.toLowerCase().replace(/\s+/g, "-") };
+        return {
+          slug: json.data?.slug ?? payload.name.toLowerCase().replace(/\s+/g, "-"),
+          fullName: json.data?.fullName,
+        };
       } catch (e) {
         setActionError(e instanceof Error ? e.message : "Failed to create repository");
         return null;

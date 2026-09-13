@@ -2,23 +2,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
-
-function getToken() {
-  try {
-    return typeof window !== "undefined" ? localStorage.getItem("devflow_token") : null;
-  } catch {
-    return null;
-  }
-}
-
-function authHeaders(): HeadersInit {
-  const token = getToken();
-  return token
-    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-    : { "Content-Type": "application/json" };
-}
+import { apiFetch } from "@/lib/apiFetch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -129,7 +113,11 @@ export interface PRDiff {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
+// Convert "owner/repo" → "owner~repo" for the API :name param.
+function encodeRepoSlug(slug: string) { return slug.replace("/", "~"); }
+
 export function usePullRequests(repoSlug: string) {
+  const apiSlug = encodeRepoSlug(repoSlug);
   const [prs, setPrs] = useState<PullRequest[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -145,12 +133,9 @@ export function usePullRequests(repoSlug: string) {
       try {
         const params = new URLSearchParams();
         if (state) params.set("state", state);
-        const res = await fetch(
-          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls?${params}`,
-          { headers: authHeaders() }
+        const json = await apiFetch<{ data: PRListResult }>(
+          `/api/v1/repositories/${apiSlug}/pulls?${params}`
         );
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error ?? "Failed to fetch pull requests");
         const data: PRListResult = json.data;
         setPrs(data.pullRequests ?? []);
         setTotal(data.total ?? 0);
@@ -167,13 +152,10 @@ export function usePullRequests(repoSlug: string) {
   const fetchPR = useCallback(
     async (number: number): Promise<PullRequest | null> => {
       try {
-        const res = await fetch(
-          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${number}`,
-          { headers: authHeaders() }
+        const json = await apiFetch<{ data: PullRequest }>(
+          `/api/v1/repositories/${apiSlug}/pulls/${number}`
         );
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error ?? "Not found");
-        return json.data as PullRequest;
+        return json.data;
       } catch {
         return null;
       }
@@ -187,6 +169,7 @@ export function usePullRequests(repoSlug: string) {
       title: string;
       body?: string;
       headBranch: string;
+      headRepoId?: string;
       baseBranch: string;
       isDraft?: boolean;
       labels?: PRLabel[];
@@ -194,13 +177,11 @@ export function usePullRequests(repoSlug: string) {
       setActionLoading(true);
       setActionError(null);
       try {
-        const res = await fetch(
-          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls`,
-          { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) }
+        const json = await apiFetch<{ data: PullRequest }>(
+          `/api/v1/repositories/${apiSlug}/pulls`,
+          { method: "POST", body: JSON.stringify(payload) }
         );
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error ?? "Failed to create pull request");
-        return json.data as PullRequest;
+        return json.data;
       } catch (e: unknown) {
         setActionError(e instanceof Error ? e.message : "Unknown error");
         return null;
@@ -226,13 +207,11 @@ export function usePullRequests(repoSlug: string) {
       setActionLoading(true);
       setActionError(null);
       try {
-        const res = await fetch(
-          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${number}`,
-          { method: "PATCH", headers: authHeaders(), body: JSON.stringify(payload) }
+        const json = await apiFetch<{ data: PullRequest }>(
+          `/api/v1/repositories/${apiSlug}/pulls/${number}`,
+          { method: "PATCH", body: JSON.stringify(payload) }
         );
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error ?? "Failed to update pull request");
-        return json.data as PullRequest;
+        return json.data;
       } catch (e: unknown) {
         setActionError(e instanceof Error ? e.message : "Unknown error");
         return null;
@@ -249,12 +228,7 @@ export function usePullRequests(repoSlug: string) {
       setActionLoading(true);
       setActionError(null);
       try {
-        const res = await fetch(
-          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${number}`,
-          { method: "DELETE", headers: authHeaders() }
-        );
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error ?? "Failed to delete pull request");
+        await apiFetch(`/api/v1/repositories/${apiSlug}/pulls/${number}`, { method: "DELETE" });
         return true;
       } catch (e: unknown) {
         setActionError(e instanceof Error ? e.message : "Unknown error");
@@ -272,13 +246,11 @@ export function usePullRequests(repoSlug: string) {
       setActionLoading(true);
       setActionError(null);
       try {
-        const res = await fetch(
-          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${number}/merge`,
-          { method: "POST", headers: authHeaders(), body: JSON.stringify({ mergeMethod: method }) }
+        const json = await apiFetch<{ data: PullRequest }>(
+          `/api/v1/repositories/${apiSlug}/pulls/${number}/merge`,
+          { method: "POST", body: JSON.stringify({ mergeMethod: method }) }
         );
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error ?? "Failed to merge pull request");
-        return json.data as PullRequest;
+        return json.data;
       } catch (e: unknown) {
         setActionError(e instanceof Error ? e.message : "Unknown error");
         return null;
@@ -300,16 +272,13 @@ export function usePullRequests(repoSlug: string) {
       setActionLoading(true);
       setActionError(null);
       try {
-        const res = await fetch(
-          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${number}/comments`,
+        await apiFetch(
+          `/api/v1/repositories/${apiSlug}/pulls/${number}/comments`,
           {
             method: "POST",
-            headers: authHeaders(),
             body: JSON.stringify({ body, filePath: filePath ?? "", lineNumber: lineNumber ?? 0 }),
           }
         );
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error ?? "Failed to add comment");
         return true;
       } catch (e: unknown) {
         setActionError(e instanceof Error ? e.message : "Unknown error");
@@ -327,12 +296,10 @@ export function usePullRequests(repoSlug: string) {
       setActionLoading(true);
       setActionError(null);
       try {
-        const res = await fetch(
-          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${number}/comments/${commentId}`,
-          { method: "PATCH", headers: authHeaders(), body: JSON.stringify({ body }) }
+        await apiFetch(
+          `/api/v1/repositories/${apiSlug}/pulls/${number}/comments/${commentId}`,
+          { method: "PATCH", body: JSON.stringify({ body }) }
         );
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error ?? "Failed to edit comment");
         return true;
       } catch (e: unknown) {
         setActionError(e instanceof Error ? e.message : "Unknown error");
@@ -350,12 +317,10 @@ export function usePullRequests(repoSlug: string) {
       setActionLoading(true);
       setActionError(null);
       try {
-        const res = await fetch(
-          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${number}/comments/${commentId}`,
-          { method: "DELETE", headers: authHeaders() }
+        await apiFetch(
+          `/api/v1/repositories/${apiSlug}/pulls/${number}/comments/${commentId}`,
+          { method: "DELETE" }
         );
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error ?? "Failed to delete comment");
         return true;
       } catch (e: unknown) {
         setActionError(e instanceof Error ? e.message : "Unknown error");
@@ -371,13 +336,10 @@ export function usePullRequests(repoSlug: string) {
   const fetchDiff = useCallback(
     async (number: number): Promise<PRDiff | null> => {
       try {
-        const res = await fetch(
-          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${number}/diff`,
-          { headers: authHeaders() }
+        const json = await apiFetch<{ data: PRDiff }>(
+          `/api/v1/repositories/${apiSlug}/pulls/${number}/diff`
         );
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error ?? "Failed to fetch diff");
-        return json.data as PRDiff;
+        return json.data;
       } catch {
         return null;
       }
@@ -391,12 +353,10 @@ export function usePullRequests(repoSlug: string) {
       setActionLoading(true);
       setActionError(null);
       try {
-        const res = await fetch(
-          `${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${number}/ai-review`,
-          { method: "POST", headers: authHeaders() }
+        await apiFetch(
+          `/api/v1/repositories/${apiSlug}/pulls/${number}/ai-review`,
+          { method: "POST" }
         );
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error ?? "Failed to trigger AI review");
         return true;
       } catch (e: unknown) {
         setActionError(e instanceof Error ? e.message : "Unknown error");

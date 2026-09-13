@@ -611,9 +611,10 @@ type Tab = "conversation" | "changes" | "commits";
 export default function PRDetailPage({
   params,
 }: {
-  params: Promise<{ name: string; number: string }>;
+  params: Promise<{ owner: string; repo: string; number: string }>;
 }) {
-  const { name, number: numStr } = use(params);
+  const { owner, repo, number: numStr } = use(params);
+  const name = `${owner}/${repo}`;
   const num = parseInt(numStr, 10);
 
   const { fetchPR, fetchDiff, mergePR, updatePR, addComment, actionLoading } =

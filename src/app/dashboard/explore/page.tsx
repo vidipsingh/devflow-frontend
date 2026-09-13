@@ -3,19 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
-
-function getToken() {
-  try { return typeof window !== "undefined" ? localStorage.getItem("devflow_token") : null; }
-  catch { return null; }
-}
-function authHeaders(): HeadersInit {
-  const t = getToken();
-  return t
-    ? { "Content-Type": "application/json", Authorization: `Bearer ${t}` }
-    : { "Content-Type": "application/json" };
-}
+import { apiFetch } from "@/lib/apiFetch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface APIRepoStats { stars: number; forks: number; openIssues: number; openPRs: number; }
@@ -49,7 +37,7 @@ function RepoCard({ repo }: { repo: APIRepo }) {
 
   return (
     <Link
-      href={`/dashboard/repositories/${slug}`}
+      href={`/dashboard/repositories/${repo.fullName ?? slug}`}
       className="group block bg-white/[0.03] border border-white/[0.07] rounded-xl p-4 hover:bg-white/[0.06] hover:border-white/[0.13] transition-all duration-150"
     >
       {/* Header */}
@@ -129,11 +117,10 @@ export default function ExplorePage() {
     setError(null);
     try {
       const params = q ? `?search=${encodeURIComponent(q)}` : "";
-      const res = await fetch(`${API_BASE}/api/v1/public/repos${params}`, {
-        headers: authHeaders(),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error ?? "Failed to fetch");
+      const json = await apiFetch<{ success: boolean; data: { repositories: APIRepo[] } }>(
+        `/api/v1/public/repos${params}`
+      );
+      if (!json.success) throw new Error("Failed to fetch");
       setRepos(json.data?.repositories ?? []);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load repos");

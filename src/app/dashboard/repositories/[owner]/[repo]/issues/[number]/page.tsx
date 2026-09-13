@@ -366,9 +366,10 @@ function CommentBlock({
 export default function IssueDetailPage({
   params,
 }: {
-  params: Promise<{ name: string; number: string }>;
+  params: Promise<{ owner: string; repo: string; number: string }>;
 }) {
-  const { name, number } = use(params);
+  const { owner, repo, number } = use(params);
+  const name = `${owner}/${repo}`;
   const issueNumber = parseInt(number, 10);
 
   const {

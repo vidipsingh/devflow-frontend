@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { apiFetch, getToken } from "@/lib/apiFetch";
 
 
 // Types
@@ -120,16 +121,6 @@ function avatarGradient(username: string): string {
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
-
-function getToken(): string | null {
-  try {
-    return typeof window !== "undefined"
-      ? localStorage.getItem("devflow_token")
-      : null;
-  } catch {
-    return null;
-  }
-}
 
 export function useDashboard(): UseDashboardReturn {
   const [meData, setMeData] = useState<MeResponse | null>(null);

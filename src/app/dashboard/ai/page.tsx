@@ -3,17 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
-
-function getToken() {
-  try { return typeof window !== "undefined" ? localStorage.getItem("devflow_token") : null; }
-  catch { return null; }
-}
-function authHeaders(): HeadersInit {
-  const t = getToken();
-  return t ? { "Content-Type": "application/json", Authorization: `Bearer ${t}` } : { "Content-Type": "application/json" };
-}
+import { apiFetch } from "@/lib/apiFetch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface AISuggestion {
@@ -39,6 +29,7 @@ interface PullRequest {
   id: string;
   number: number;
   repoSlug: string;
+  repoFullName?: string;  // owner/repo — used for navigation
   title: string;
   state: "open" | "closed" | "merged";
   authorName: string;
@@ -55,6 +46,7 @@ interface Repo {
   id: string;
   name: string;
   slug: string;
+  fullName?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -171,7 +163,7 @@ function PRReviewCard({ pr, expanded, onToggle, onRetrigger }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-start gap-2 flex-wrap mb-1.5">
             <Link
-              href={`/dashboard/repositories/${pr.repoSlug}/pulls/${pr.number}`}
+              href={`/dashboard/repositories/${pr.repoFullName ?? pr.repoSlug}/pulls/${pr.number}`}
               className="text-sm font-semibold text-white/85 hover:text-indigo-300 transition-colors"
               onClick={e => e.stopPropagation()}
             >
@@ -181,11 +173,11 @@ function PRReviewCard({ pr, expanded, onToggle, onRetrigger }: {
           </div>
           <div className="flex items-center gap-2 flex-wrap text-xs text-white/30">
             <Link
-              href={`/dashboard/repositories/${pr.repoSlug}/pulls`}
+              href={`/dashboard/repositories/${pr.repoFullName ?? pr.repoSlug}/pulls`}
               className="text-indigo-400/60 hover:text-indigo-300 transition-colors"
               onClick={e => e.stopPropagation()}
             >
-              {pr.repoSlug}
+              {pr.repoFullName ?? pr.repoSlug}
             </Link>
             <span className="text-white/15">·</span>
             <span>#{pr.number}</span>
@@ -273,8 +265,7 @@ export default function AIReviewsPage() {
     setLoading(true);
     try {
       // Fetch repos
-      const rRes = await fetch(`${API_BASE}/api/v1/repositories`, { headers: authHeaders() });
-      const rJson = await rRes.json();
+      const rJson = await apiFetch<{ data: { repositories: Repo[] } }>("/api/v1/repositories");
       const repoList: Repo[] = rJson.data?.repositories ?? [];
       setRepos(repoList);
 
@@ -282,14 +273,19 @@ export default function AIReviewsPage() {
       const allPRs: PullRequest[] = [];
       await Promise.all(repoList.map(async (repo) => {
         try {
-          const [openRes, mergedRes, closedRes] = await Promise.all([
-            fetch(`${API_BASE}/api/v1/repositories/${repo.slug}/pulls?state=open`, { headers: authHeaders() }),
-            fetch(`${API_BASE}/api/v1/repositories/${repo.slug}/pulls?state=merged`, { headers: authHeaders() }),
-            fetch(`${API_BASE}/api/v1/repositories/${repo.slug}/pulls?state=closed`, { headers: authHeaders() }),
+          const [openJ, mergedJ, closedJ] = await Promise.all([
+            apiFetch<{ success: boolean; data: { pullRequests: PullRequest[] } }>(`/api/v1/repositories/${repo.slug}/pulls?state=open`),
+            apiFetch<{ success: boolean; data: { pullRequests: PullRequest[] } }>(`/api/v1/repositories/${repo.slug}/pulls?state=merged`),
+            apiFetch<{ success: boolean; data: { pullRequests: PullRequest[] } }>(`/api/v1/repositories/${repo.slug}/pulls?state=closed`),
           ]);
-          for (const res of [openRes, mergedRes, closedRes]) {
-            const j = await res.json();
-            if (j.success) allPRs.push(...(j.data?.pullRequests ?? []));
+          for (const j of [openJ, mergedJ, closedJ]) {
+            if (j.success) {
+              // Tag each PR with the repo's fullName for navigation
+              allPRs.push(...(j.data?.pullRequests ?? []).map((pr) => ({
+                ...pr,
+                repoFullName: repo.fullName ?? repo.slug,
+              })));
+            }
           }
         } catch { /* skip */ }
       }));
@@ -307,9 +303,7 @@ export default function AIReviewsPage() {
     const key = `${repoSlug}-${prNumber}`;
     setRetriggering(key);
     try {
-      await fetch(`${API_BASE}/api/v1/repositories/${repoSlug}/pulls/${prNumber}/ai-review`, {
-        method: "POST", headers: authHeaders(),
-      });
+      await apiFetch(`/api/v1/repositories/${repoSlug}/pulls/${prNumber}/ai-review`, { method: "POST" });
       // Optimistically update status
       setPrs(prev => prev.map(p =>
         p.repoSlug === repoSlug && p.number === prNumber
