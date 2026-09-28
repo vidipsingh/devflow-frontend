@@ -112,18 +112,25 @@ const Icon = {
       <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  bell: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M8 2a4.5 4.5 0 0 0-4.5 4.5V9L2 10.5h12L12.5 9V6.5A4.5 4.5 0 0 0 8 2Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M6.5 12.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
 };
 
 
-function buildNavSections(openPRs: number, openIssues: number): NavSection[] {
+function buildNavSections(openPRs: number, openIssues: number, unreadNotifs: number): NavSection[] {
   return [
     {
       items: [
-        { label: "Overview",     href: "/dashboard",               icon: Icon.home        },
-        { label: "Repositories", href: "/dashboard/repositories",  icon: Icon.repo        },
-        { label: "Pull Requests",href: "/dashboard/pulls",         icon: Icon.pr,   badge: openPRs   },
-        { label: "Issues",       href: "/dashboard/issues",        icon: Icon.issue, badge: openIssues },
-        { label: "Explore",      href: "/dashboard/explore",       icon: Icon.explore     },
+        { label: "Overview",       href: "/dashboard",                  icon: Icon.home        },
+        { label: "Repositories",   href: "/dashboard/repositories",     icon: Icon.repo        },
+        { label: "Pull Requests",  href: "/dashboard/pulls",            icon: Icon.pr,   badge: openPRs        },
+        { label: "Issues",         href: "/dashboard/issues",           icon: Icon.issue, badge: openIssues    },
+        { label: "Notifications",  href: "/dashboard/notifications",    icon: Icon.bell, badge: unreadNotifs   },
+        { label: "Explore",        href: "/dashboard/explore",          icon: Icon.explore     },
       ],
     },
     {
@@ -192,12 +199,13 @@ interface SidebarProps {
   user: DashboardUser;
   openPRs?: number;
   openIssues?: number;
+  unreadNotifs?: number;
 }
 
-export default function Sidebar({ user, openPRs = 0, openIssues = 0 }: SidebarProps) {
+export default function Sidebar({ user, openPRs = 0, openIssues = 0, unreadNotifs = 0 }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const navSections = buildNavSections(openPRs, openIssues);
+  const navSections = buildNavSections(openPRs, openIssues, unreadNotifs);
 
   return (
     <aside

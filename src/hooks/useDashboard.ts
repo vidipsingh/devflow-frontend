@@ -47,6 +47,12 @@ export interface Notification {
   body: string;
   read: boolean;
   time: string;
+  // raw backend fields (kept for the notifications page)
+  type?: string;
+  actorName?: string;
+  repoName?: string;
+  meta?: Record<string, unknown>;
+  createdAt?: string;
 }
 
 export interface UseDashboardReturn {
@@ -98,13 +104,71 @@ const MOCK_ACTIVITY: ActivityItem[] = [
   { id: "a8", type: "pr_merged",  repo: "devflow-backend",   message: "Merged PR #3 — Add MongoDB Atlas integration",        time: "2d ago",   meta: "+580 −42"   },
 ];
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: "n1", title: "PR #42 approved",       body: "alex_dev approved your pull request in payment-service.",    read: false, time: "5m ago"  },
-  { id: "n2", title: "AI Review complete",     body: "DevFlow AI reviewed PR #7 in devflow-backend.",             read: false, time: "20m ago" },
-  { id: "n3", title: "New issue assigned",     body: 'Issue #91 "Fix token expiry" was assigned to you.',        read: false, time: "1h ago"  },
-  { id: "n4", title: "Streak milestone 🔥",   body: "You hit a 14-day contribution streak! Keep it up.",         read: true,  time: "2h ago"  },
-  { id: "n5", title: "PR needs your review",  body: "priya_eng requested your review on PR #15 in cli-tools.",   read: true,  time: "3h ago"  },
-];
+// ─── Notification helpers ──────────────────────────────────────────────────
+
+interface APINotification {
+  id: string;
+  type: string;
+  actorName: string;
+  repoName: string;
+  meta?: Record<string, unknown>;
+  read: boolean;
+  createdAt: string;
+}
+
+function notifTitle(n: APINotification): string {
+  switch (n.type) {
+    case "repo.forked":   return `${n.actorName} forked your repo`;
+    case "pr.created":    return `New PR by ${n.actorName}`;
+    case "pr.merged":     return `Your PR was merged`;
+    case "issue.created": return `New issue by ${n.actorName}`;
+    case "issue.closed":  return `Your issue was closed`;
+    default:              return n.type;
+  }
+}
+
+function notifBody(n: APINotification): string {
+  const repo = n.repoName || "a repository";
+  switch (n.type) {
+    case "repo.forked":
+      return `${n.actorName} forked ${repo}`;
+    case "pr.created":
+      return `${n.actorName} opened PR #${n.meta?.prNumber ?? ""}: ${n.meta?.prTitle ?? ""} in ${repo}`;
+    case "pr.merged":
+      return `${n.actorName} merged your PR #${n.meta?.prNumber ?? ""}: ${n.meta?.prTitle ?? ""} in ${repo}`;
+    case "issue.created":
+      return `${n.actorName} opened issue #${n.meta?.issueNumber ?? ""}: ${n.meta?.issueTitle ?? ""} in ${repo}`;
+    case "issue.closed":
+      return `${n.actorName} closed your issue #${n.meta?.issueNumber ?? ""}: ${n.meta?.issueTitle ?? ""} in ${repo}`;
+    default:
+      return repo;
+  }
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function mapAPINotification(n: APINotification): Notification {
+  return {
+    id: n.id,
+    title: notifTitle(n),
+    body: notifBody(n),
+    read: n.read,
+    time: relativeTime(n.createdAt),
+    type: n.type,
+    actorName: n.actorName,
+    repoName: n.repoName,
+    meta: n.meta,
+    createdAt: n.createdAt,
+  };
+}
 
 const AVATAR_GRADIENTS = [
   "bg-gradient-to-br from-indigo-500 to-cyan-400",
@@ -127,7 +191,7 @@ export function useDashboard(): UseDashboardReturn {
   const [repos, setRepos] = useState<APIRepo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -142,10 +206,11 @@ export function useDashboard(): UseDashboardReturn {
     const headers = { Authorization: `Bearer ${token}` };
 
     try {
-      // Fetch /me and /repositories in parallel
-      const [meRes, reposRes] = await Promise.all([
+      // Fetch /me, /repositories, and /notifications in parallel
+      const [meRes, reposRes, notifRes] = await Promise.all([
         fetch(`${API_BASE}/api/v1/me`, { headers }),
         fetch(`${API_BASE}/api/v1/repositories`, { headers }),
+        fetch(`${API_BASE}/api/v1/notifications?limit=20`, { headers }),
       ]);
 
       if (meRes.ok) {
@@ -156,6 +221,12 @@ export function useDashboard(): UseDashboardReturn {
       if (reposRes.ok) {
         const j = await reposRes.json();
         setRepos(j?.data?.repositories ?? []);
+      }
+
+      if (notifRes.ok) {
+        const j = await notifRes.json();
+        const raw: APINotification[] = j?.data ?? [];
+        setNotifications(raw.map(mapAPINotification));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
@@ -244,13 +315,35 @@ export function useDashboard(): UseDashboardReturn {
     [notifications]
   );
 
-  const markAllRead = () =>
+  const markAllRead = useCallback(async () => {
+    // Optimistic update
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      const token = getToken();
+      if (token) {
+        await fetch(`${API_BASE}/api/v1/notifications/read-all`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch { /* ignore — optimistic update already applied */ }
+  }, []);
 
-  const markRead = (id: string) =>
+  const markRead = useCallback(async (id: string) => {
+    // Optimistic update
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
+    try {
+      const token = getToken();
+      if (token) {
+        await fetch(`${API_BASE}/api/v1/notifications/${id}/read`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch { /* ignore — optimistic update already applied */ }
+  }, []);
 
   return {
     user,

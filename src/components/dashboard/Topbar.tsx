@@ -53,7 +53,7 @@ function NotificationPanel({
   onClose: () => void;
 }) {
   return (
-    <div className="absolute right-0 top-full mt-2 w-80 glass rounded-2xl border border-white/[0.08] shadow-2xl shadow-black/50 z-50 overflow-hidden">
+    <div className="absolute right-0 top-full mt-2 w-80 bg-black/90 rounded-2xl border border-white/[0.08] shadow-2xl shadow-black/50 z-50 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-2">

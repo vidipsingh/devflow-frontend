@@ -224,7 +224,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-[#0d0d0f] overflow-hidden">
-      <Sidebar user={user} openPRs={openPRs} openIssues={0} />
+      <Sidebar user={user} openPRs={openPRs} openIssues={0} unreadNotifs={unreadCount} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar
           user={user}
