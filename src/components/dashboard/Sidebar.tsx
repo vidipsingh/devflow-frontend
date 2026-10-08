@@ -88,7 +88,7 @@ const Icon = {
       <path d="M4.5 9.5h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   ),
-  team: (
+  teams: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.2" />
       <path d="M1 13c0-2.76 2.24-5 5-5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -140,7 +140,7 @@ function buildNavSections(openPRs: number, openIssues: number, unreadNotifs: num
         { label: "Pair Programming", href: "/dashboard/pair",  icon: Icon.pair        },
         { label: "Marketplace",  href: "/dashboard/marketplace",  icon: Icon.marketplace },
         { label: "Analytics",    href: "/dashboard/analytics",    icon: Icon.analytics  },
-        { label: "Team",         href: "/dashboard/team",         icon: Icon.team       },
+        { label: "Teams",         href: "/dashboard/teams",         icon: Icon.teams       },
         { label: "Billing",      href: "/dashboard/billing",      icon: Icon.billing    },
       ],
     },
