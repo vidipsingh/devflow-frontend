@@ -64,6 +64,31 @@ function IconGitBranch() {
   );
 }
 
+function IconRepo() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h8M8 16h5" />
+    </svg>
+  );
+}
+
+function IconActivity() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+    </svg>
+  );
+}
+
+function IconShield() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
 // ─── Role badge ───────────────────────────────────────────────────────────────
 
 const ROLE_STYLES: Record<string, string> = {
@@ -376,6 +401,35 @@ export default function TeamOverviewPage({ params }: PageProps) {
           </div>
         )}
 
+        {/* Phase 2 nav strip — always visible to members */}
+        {isMember && (
+          <div className="flex gap-2 flex-wrap mb-6 border-b border-white/[0.05] pb-4">
+            <Link
+              href={`/dashboard/teams/${slug}/repos`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors"
+            >
+              <IconRepo /> Repositories
+              {team.repoCount > 0 && (
+                <span className="ml-1 text-[10px] bg-white/[0.07] text-white/40 px-1.5 py-0.5 rounded-full">{team.repoCount}</span>
+              )}
+            </Link>
+            <Link
+              href={`/dashboard/teams/${slug}/activity`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors"
+            >
+              <IconActivity /> Activity
+            </Link>
+            {isAdmin && (
+              <Link
+                href={`/dashboard/teams/${slug}/audit-log`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-amber-500/60 hover:text-amber-400 hover:bg-amber-500/[0.06] transition-colors"
+              >
+                <IconShield /> Audit Log
+              </Link>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-12">
 
           {/* Left — bio & main info */}
@@ -493,6 +547,15 @@ export default function TeamOverviewPage({ params }: PageProps) {
                 <h2 className="text-xs font-semibold text-white/50 mb-2">Admin</h2>
                 <Link href={`/dashboard/teams/${slug}/members`} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/[0.04] text-white/50 hover:text-white/70 text-xs transition-colors">
                   <IconUsers /> Manage Members
+                </Link>
+                <Link href={`/dashboard/teams/${slug}/repos`} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/[0.04] text-white/50 hover:text-white/70 text-xs transition-colors">
+                  <IconRepo /> Repositories
+                </Link>
+                <Link href={`/dashboard/teams/${slug}/activity`} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/[0.04] text-white/50 hover:text-white/70 text-xs transition-colors">
+                  <IconActivity /> Activity Feed
+                </Link>
+                <Link href={`/dashboard/teams/${slug}/audit-log`} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-amber-500/[0.06] text-amber-500/50 hover:text-amber-400 text-xs transition-colors">
+                  <IconShield /> Audit Log
                 </Link>
                 <Link href={`/dashboard/teams/${slug}/settings`} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/[0.04] text-white/50 hover:text-white/70 text-xs transition-colors">
                   <IconSettings /> Team Settings

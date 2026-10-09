@@ -195,6 +195,63 @@ function InviteModal({ slug, onClose, onSuccess }: InviteModalProps) {
   );
 }
 
+// ─── Confirm Modal ────────────────────────────────────────────────────────────
+
+interface ConfirmModalProps {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  danger?: boolean;
+  loading?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmModal({ title, message, confirmLabel, danger = true, loading = false, onConfirm, onCancel }: ConfirmModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onCancel}>
+      <div
+        onClick={e => e.stopPropagation()}
+        className="w-full max-w-sm bg-[#0d0d14] border border-white/[0.09] rounded-2xl p-6 shadow-2xl space-y-4"
+      >
+        <div className="flex items-start gap-3">
+          {danger && (
+            <div className="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            </div>
+          )}
+          <div>
+            <h3 className="text-sm font-semibold text-white">{title}</h3>
+            <p className="text-xs text-white/45 mt-1">{message}</p>
+          </div>
+        </div>
+        <div className="flex gap-3 pt-1">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 py-2 rounded-xl border border-white/[0.08] text-white/50 text-sm hover:text-white/70 transition-colors disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className={`flex-1 py-2 rounded-xl text-white text-sm font-medium transition-colors disabled:opacity-50 ${
+              danger ? "bg-rose-600 hover:bg-rose-500" : "bg-violet-600 hover:bg-violet-500"
+            }`}
+          >
+            {loading ? "Please wait…" : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 interface PageProps {
@@ -214,6 +271,11 @@ export default function TeamMembersPage({ params }: PageProps) {
   const [showInvite, setShowInvite] = useState(false);
   // Server-confirmed role — no localStorage matching
   const [myRole, setMyRole]     = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "remove" | "ban" | "unban";
+    username: string;
+  } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   async function loadAll() {
     setLoading(true);
@@ -250,24 +312,34 @@ export default function TeamMembersPage({ params }: PageProps) {
     }
   }
 
-  async function handleRemove(username: string) {
-    if (!confirm(`Remove ${username} from the team?`)) return;
-    try {
-      await removeMember(slug, username);
-      setMsg(`${username} removed`);
-      loadAll();
-    } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : "Failed");
-    }
+  function handleRemove(username: string) {
+    setConfirmAction({ type: "remove", username });
   }
 
-  async function handleBan(username: string, ban: boolean) {
+  function handleBan(username: string, ban: boolean) {
+    setConfirmAction({ type: ban ? "ban" : "unban", username });
+  }
+
+  async function executeConfirmAction() {
+    if (!confirmAction) return;
+    setActionLoading(true);
     try {
-      await banMember(slug, username, ban);
-      setMsg(ban ? `${username} banned` : `${username} unbanned`);
+      if (confirmAction.type === "remove") {
+        await removeMember(slug, confirmAction.username);
+        setMsg(`${confirmAction.username} removed`);
+      } else if (confirmAction.type === "ban") {
+        await banMember(slug, confirmAction.username, true);
+        setMsg(`${confirmAction.username} banned`);
+      } else {
+        await banMember(slug, confirmAction.username, false);
+        setMsg(`${confirmAction.username} unbanned`);
+      }
       loadAll();
     } catch (e: unknown) {
       setMsg(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setActionLoading(false);
+      setConfirmAction(null);
     }
   }
 
@@ -291,8 +363,39 @@ export default function TeamMembersPage({ params }: PageProps) {
     }
   }
 
+  const confirmModalProps = confirmAction
+    ? confirmAction.type === "remove"
+      ? {
+          title: "Remove member",
+          message: `Remove ${confirmAction.username} from this team? They can rejoin if the team is public.`,
+          confirmLabel: "Remove",
+          danger: true as const,
+        }
+      : confirmAction.type === "ban"
+      ? {
+          title: "Ban member",
+          message: `Ban ${confirmAction.username}? They will not be able to rejoin this team.`,
+          confirmLabel: "Ban",
+          danger: true as const,
+        }
+      : {
+          title: "Unban member",
+          message: `Unban ${confirmAction.username}? They will be able to rejoin this team.`,
+          confirmLabel: "Unban",
+          danger: false as const,
+        }
+    : null;
+
   return (
     <div className="min-h-screen bg-[#080810] text-white">
+      {confirmAction && confirmModalProps && (
+        <ConfirmModal
+          {...confirmModalProps}
+          loading={actionLoading}
+          onConfirm={executeConfirmAction}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
       {showInvite && (
         <InviteModal
           slug={slug}

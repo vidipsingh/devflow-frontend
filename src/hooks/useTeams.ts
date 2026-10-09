@@ -90,6 +90,60 @@ export interface UpdateTeamPayload {
   tags?: string[];
 }
 
+// ─── Phase 2 Types ────────────────────────────────────────────────────────────
+
+export interface TeamRepo {
+  id: string;
+  teamId: string;
+  repoId: string;
+  repoName: string;
+  repoSlug: string;
+  repoFullName: string; // e.g. "owner/repo-name" — use for /dashboard/repositories/:fullName
+  visibility: string;
+  addedBy: string;
+  addedAt: string;
+}
+
+export interface TeamActivity {
+  id: string;
+  teamId: string;
+  actorId: string;
+  actorName: string;
+  actorAvatar: string;
+  action: string;
+  targetType: string;
+  targetName: string;
+  meta?: Record<string, string>;
+  createdAt: string;
+}
+
+export interface TeamAuditLog {
+  id: string;
+  teamId: string;
+  actorId: string;
+  actorUsername: string;
+  action: string;
+  targetUsername?: string;
+  targetRole?: string;
+  meta?: Record<string, string>;
+  createdAt: string;
+}
+
+export interface TeamPermissions {
+  role: string;
+  permissions: string[];
+}
+
+export interface CreateSubTeamPayload {
+  name: string;
+  description?: string;
+  visibility?: string;
+  joinPolicy?: string;
+  tags?: string[];
+}
+
+
+
 // ─── API helpers ──────────────────────────────────────────────────────────────
 
 interface ApiResponse<T> {
@@ -342,4 +396,57 @@ export function useMyInvites() {
 
   useEffect(() => { load(); }, [load]);
   return { invites, loading, error, reload: load };
+}
+
+
+// ─── Phase 2: Team Repos ──────────────────────────────────────────────────────
+
+export async function listTeamRepos(slug: string, limit = 50, skip = 0): Promise<TeamRepo[]> {
+  const res = await apiFetch<ApiResponse<TeamRepo[]>>(
+    `/api/v1/teams/${slug}/repos?limit=${limit}&skip=${skip}`
+  );
+  return res.data ?? [];
+}
+
+export async function addTeamRepo(slug: string, repoName: string): Promise<TeamRepo> {
+  return apiPost<TeamRepo>(`/api/v1/teams/${slug}/repos`, { repoName });
+}
+
+export async function removeTeamRepo(slug: string, repoSlug: string): Promise<void> {
+  await apiDelete(`/api/v1/teams/${slug}/repos/${repoSlug}`);
+}
+
+// ─── Phase 2: Activity Feed ───────────────────────────────────────────────────
+
+export async function listTeamActivity(slug: string, limit = 30, skip = 0): Promise<TeamActivity[]> {
+  const res = await apiFetch<ApiResponse<TeamActivity[]>>(
+    `/api/v1/teams/${slug}/activity?limit=${limit}&skip=${skip}`
+  );
+  return res.data ?? [];
+}
+
+// ─── Phase 2: Audit Log ───────────────────────────────────────────────────────
+
+export async function listTeamAuditLog(slug: string, limit = 50, skip = 0): Promise<TeamAuditLog[]> {
+  const res = await apiFetch<ApiResponse<TeamAuditLog[]>>(
+    `/api/v1/teams/${slug}/audit-log?limit=${limit}&skip=${skip}`
+  );
+  return res.data ?? [];
+}
+
+// ─── Phase 2: Permissions ─────────────────────────────────────────────────────
+
+export async function getMyPermissions(slug: string): Promise<TeamPermissions | null> {
+  try {
+    const res = await apiFetch<ApiResponse<TeamPermissions>>(`/api/v1/teams/${slug}/permissions/me`);
+    return res.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Phase 2: Sub-teams ───────────────────────────────────────────────────────
+
+export async function createSubTeam(parentSlug: string, payload: CreateSubTeamPayload): Promise<Team> {
+  return apiPost<Team>(`/api/v1/teams/${parentSlug}/sub-teams`, payload);
 }

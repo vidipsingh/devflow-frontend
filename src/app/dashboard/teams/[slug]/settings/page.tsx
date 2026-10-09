@@ -4,7 +4,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getTeam, updateTeam, deleteTeam, transferOwnership, listTeamMembers, Team, TeamMember } from "@/hooks/useTeams";
+import { getTeam, updateTeam, deleteTeam, transferOwnership, listTeamMembers, createSubTeam, Team, TeamMember } from "@/hooks/useTeams";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -81,6 +81,13 @@ export default function TeamSettingsPage({ params }: PageProps) {
   // Danger zone state
   const [transferTo, setTransferTo]   = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState("");
+
+  // Sub-team creation
+  const [subName, setSubName]               = useState("");
+  const [subDesc, setSubDesc]               = useState("");
+  const [subVisibility, setSubVisibility]   = useState("public");
+  const [subJoinPolicy, setSubJoinPolicy]   = useState("invite_only");
+  const [creatingSubTeam, setCreatingSubTeam] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -163,6 +170,30 @@ export default function TeamSettingsPage({ params }: PageProps) {
     }
   }
 
+  async function handleCreateSubTeam(e: React.FormEvent) {
+    e.preventDefault();
+    if (!subName.trim()) return;
+    setCreatingSubTeam(true);
+    setMsg(null);
+    try {
+      await createSubTeam(slug, {
+        name: subName.trim(),
+        description: subDesc.trim() || undefined,
+        visibility: subVisibility,
+        joinPolicy: subJoinPolicy,
+      });
+      setMsg({ text: `Sub-team "${subName}" created successfully!`, type: "ok" });
+      setSubName("");
+      setSubDesc("");
+      setSubVisibility("public");
+      setSubJoinPolicy("invite_only");
+    } catch (err: unknown) {
+      setMsg({ text: err instanceof Error ? err.message : "Failed to create sub-team", type: "err" });
+    } finally {
+      setCreatingSubTeam(false);
+    }
+  }
+
   async function handleDelete() {
     if (deleteConfirm !== team?.name) {
       setMsg({ text: `Type the team name "${team?.name}" to confirm deletion`, type: "err" });
@@ -204,8 +235,32 @@ export default function TeamSettingsPage({ params }: PageProps) {
           <IconArrowLeft /> Back to Team
         </Link>
 
-        <h1 className="text-2xl font-bold text-white mb-1">Team Settings</h1>
-        <p className="text-white/40 text-sm mb-8">/{slug}</p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-1">Team Settings</h1>
+            <p className="text-white/40 text-sm">/{slug}</p>
+          </div>
+          <div className="flex gap-2">
+            <Link
+              href={`/dashboard/teams/${slug}/activity`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-white/40 hover:text-white/70 hover:bg-white/[0.04] border border-white/[0.06] transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+              Activity
+            </Link>
+            <Link
+              href={`/dashboard/teams/${slug}/audit-log`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-amber-500/60 hover:text-amber-400 hover:bg-amber-500/[0.06] border border-amber-500/20 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              Audit Log
+            </Link>
+          </div>
+        </div>
 
         {/* Message */}
         {msg && (
@@ -301,6 +356,64 @@ export default function TeamSettingsPage({ params }: PageProps) {
             {saving ? "Saving…" : "Save Settings"}
           </button>
         </form>
+
+        {/* ── Sub-Teams ── */}
+        <section className="mt-8 rounded-2xl border border-white/[0.07] bg-[#0d0d14] p-6">
+          <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wide mb-1">Create Sub-Team</h2>
+          <p className="text-xs text-white/35 mb-5">
+            Sub-teams inherit from <span className="text-white/55">{team?.name}</span> and allow fine-grained access partitioning.
+          </p>
+          <form onSubmit={handleCreateSubTeam} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-white/70">Sub-team Name <span className="text-rose-400">*</span></label>
+              <input
+                type="text"
+                value={subName}
+                onChange={e => setSubName(e.target.value)}
+                maxLength={64}
+                placeholder="e.g. Frontend, Infra, Security"
+                className={fieldCls}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-white/70">Description</label>
+              <input
+                type="text"
+                value={subDesc}
+                onChange={e => setSubDesc(e.target.value)}
+                maxLength={256}
+                placeholder="Brief description of this sub-team"
+                className={fieldCls}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white/70">Visibility</label>
+                <select value={subVisibility} onChange={e => setSubVisibility(e.target.value)} className={fieldCls}>
+                  <option value="public"  className="bg-[#0d0d14]">Public</option>
+                  <option value="private" className="bg-[#0d0d14]">Private</option>
+                  <option value="secret"  className="bg-[#0d0d14]">Secret</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white/70">Join Policy</label>
+                <select value={subJoinPolicy} onChange={e => setSubJoinPolicy(e.target.value)} className={fieldCls}>
+                  <option value="open"        className="bg-[#0d0d14]">Open</option>
+                  <option value="request"     className="bg-[#0d0d14]">By Request</option>
+                  <option value="invite_only" className="bg-[#0d0d14]">Invite Only</option>
+                </select>
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={!subName.trim() || creatingSubTeam}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-600/80 hover:bg-violet-600 text-white text-sm font-medium transition-colors disabled:opacity-40"
+            >
+              {creatingSubTeam ? "Creating…" : "Create Sub-Team"}
+            </button>
+          </form>
+        </section>
 
         {/* ── Danger Zone ── */}
         <section className="mt-8 rounded-2xl border border-rose-500/20 bg-rose-500/[0.03] p-6">
