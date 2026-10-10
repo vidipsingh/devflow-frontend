@@ -450,3 +450,75 @@ export async function getMyPermissions(slug: string): Promise<TeamPermissions | 
 export async function createSubTeam(parentSlug: string, payload: CreateSubTeamPayload): Promise<Team> {
   return apiPost<Team>(`/api/v1/teams/${parentSlug}/sub-teams`, payload);
 }
+
+
+// ─── Phase 3: Discussions ─────────────────────────────────────────────────────
+
+export interface TeamDiscussion {
+  id: string;
+  teamId: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  resolved: boolean;
+  replyCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeamDiscussionReply {
+  id: string;
+  discussionId: string;
+  teamId: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listDiscussions(slug: string, limit = 30, skip = 0): Promise<TeamDiscussion[]> {
+  const res = await apiFetch<ApiResponse<TeamDiscussion[]>>(
+    `/api/v1/teams/${slug}/discussions?limit=${limit}&skip=${skip}`
+  );
+  return res.data ?? [];
+}
+
+export async function createDiscussion(slug: string, title: string, body: string): Promise<TeamDiscussion> {
+  return apiPost<TeamDiscussion>(`/api/v1/teams/${slug}/discussions`, { title, body });
+}
+
+export async function getDiscussion(slug: string, discussionId: string): Promise<{ discussion: TeamDiscussion; replies: TeamDiscussionReply[] }> {
+  const res = await apiFetch<ApiResponse<{ discussion: TeamDiscussion; replies: TeamDiscussionReply[] }>>(
+    `/api/v1/teams/${slug}/discussions/${discussionId}`
+  );
+  return res.data;
+}
+
+export async function updateDiscussion(slug: string, discussionId: string, title: string, body: string): Promise<TeamDiscussion> {
+  return apiPatch<TeamDiscussion>(`/api/v1/teams/${slug}/discussions/${discussionId}`, { title, body });
+}
+
+export async function pinDiscussion(slug: string, discussionId: string, pinned: boolean): Promise<void> {
+  await apiPatch(`/api/v1/teams/${slug}/discussions/${discussionId}/pin`, { pinned });
+}
+
+export async function resolveDiscussion(slug: string, discussionId: string, resolved: boolean): Promise<void> {
+  await apiPatch(`/api/v1/teams/${slug}/discussions/${discussionId}/resolve`, { resolved });
+}
+
+export async function deleteDiscussion(slug: string, discussionId: string): Promise<void> {
+  await apiDelete(`/api/v1/teams/${slug}/discussions/${discussionId}`);
+}
+
+export async function addReply(slug: string, discussionId: string, body: string): Promise<TeamDiscussionReply> {
+  return apiPost<TeamDiscussionReply>(`/api/v1/teams/${slug}/discussions/${discussionId}/replies`, { body });
+}
+
+export async function deleteReply(slug: string, discussionId: string, replyId: string): Promise<void> {
+  await apiDelete(`/api/v1/teams/${slug}/discussions/${discussionId}/replies/${replyId}`);
+}

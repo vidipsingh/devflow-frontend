@@ -89,6 +89,14 @@ function IconShield() {
   );
 }
 
+function IconChat() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
 // ─── Role badge ───────────────────────────────────────────────────────────────
 
 const ROLE_STYLES: Record<string, string> = {
@@ -418,6 +426,12 @@ export default function TeamOverviewPage({ params }: PageProps) {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors"
             >
               <IconActivity /> Activity
+            </Link>
+            <Link
+              href={`/dashboard/teams/${slug}/discussions`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors"
+            >
+              <IconChat /> Discussions
             </Link>
             {isAdmin && (
               <Link
