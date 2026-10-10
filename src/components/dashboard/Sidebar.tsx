@@ -127,8 +127,8 @@ function buildNavSections(openPRs: number, openIssues: number, unreadNotifs: num
       items: [
         { label: "Overview",       href: "/dashboard",                  icon: Icon.home        },
         { label: "Repositories",   href: "/dashboard/repositories",     icon: Icon.repo        },
-        { label: "Pull Requests",  href: "/dashboard/pulls",            icon: Icon.pr,   badge: openPRs        },
-        { label: "Issues",         href: "/dashboard/issues",           icon: Icon.issue, badge: openIssues    },
+        { label: "Pull Requests",  href: "/dashboard/pulls",            icon: Icon.pr        },
+        { label: "Issues",         href: "/dashboard/issues",           icon: Icon.issue    },
         { label: "Notifications",  href: "/dashboard/notifications",    icon: Icon.bell, badge: unreadNotifs   },
         { label: "Explore",        href: "/dashboard/explore",          icon: Icon.explore     },
       ],

@@ -120,6 +120,7 @@ function IssueRow({ issue }: { issue: Issue }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function GlobalIssuesPage() {
   const [repos, setRepos] = useState<Repo[]>([]);
+  const [reposLoaded, setReposLoaded] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState<string>("all");
   const [tab, setTab] = useState<"open" | "closed">("open");
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -129,63 +130,42 @@ export default function GlobalIssuesPage() {
   const [error, setError] = useState<string | null>(null);
   const LIMIT = 20;
 
-  // Fetch all repos for the filter dropdown
+  // Fetch all repos once — used only for the filter dropdown
   useEffect(() => {
-    const fetchRepos = async () => {
-      try {
-        const json = await apiFetch<{ success: boolean; data: { repositories: Repo[] } }>("/api/v1/repositories");
-        if (json.success) setRepos(json.data?.repositories ?? []);
-      } catch {/* ignore */}
-    };
-    fetchRepos();
+    apiFetch<{ success: boolean; data: { repositories: Repo[] } }>("/api/v1/repositories")
+      .then((json) => { if (json.success) setRepos(json.data?.repositories ?? []); })
+      .catch(() => {/* ignore */})
+      .finally(() => setReposLoaded(true));
   }, []);
 
   const fetchIssues = useCallback(async () => {
-    if (selectedRepo === "all" && repos.length === 0) return;
     setLoading(true);
     setError(null);
-
     try {
-      const reposToFetch = selectedRepo === "all"
-        ? repos
-        : repos.filter((r) => (r.slug ?? r.name) === selectedRepo);
-
-      // Fetch issues from all selected repos in parallel
-      const results = await Promise.all(
-        reposToFetch.map(async (repo) => {
-          const slug = repo.slug ?? repo.name;
-          const params = new URLSearchParams({ state: tab, page: String(page), limit: String(LIMIT) });
-          const json = await apiFetch<{ success: boolean; data: { issues: Issue[]; total: number } }>(
-            `/api/v1/repositories/${slug}/issues?${params}`
-          );
-          if (!json.success) return { issues: [] as Issue[], total: 0 };
-          // Tag each issue with the repo's fullName for navigation
-          const issues = (json.data?.issues ?? []).map((iss) => ({
-            ...iss,
-            repoFullName: repo.fullName ?? slug,
-          }));
-          return { issues, total: (json.data?.total ?? 0) as number };
-        })
+      // Single backend call — server aggregates across all repos
+      const repoSlug = selectedRepo === "all" ? "" : selectedRepo;
+      const params = new URLSearchParams({
+        state: tab,
+        page: String(page),
+        limit: String(LIMIT),
+        ...(repoSlug ? { repo: repoSlug } : {}),
+      });
+      const json = await apiFetch<{ success: boolean; data: { issues: Issue[]; total: number } }>(
+        `/api/v1/issues?${params}`
       );
-
-      const allIssues = results.flatMap((r) => r.issues);
-      const allTotal = results.reduce((sum, r) => sum + r.total, 0);
-
-      // Sort combined results by createdAt desc
-      allIssues.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-      setIssues(allIssues);
-      setTotal(allTotal);
+      if (!json.success) throw new Error("Failed to fetch issues");
+      setIssues(json.data?.issues ?? []);
+      setTotal(json.data?.total ?? 0);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to fetch issues");
     } finally {
       setLoading(false);
     }
-  }, [selectedRepo, repos, tab, page]);
+  }, [selectedRepo, tab, page]);
 
   useEffect(() => {
-    if (repos.length > 0) fetchIssues();
-  }, [fetchIssues, repos]);
+    if (reposLoaded) fetchIssues();
+  }, [fetchIssues, reposLoaded]);
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 

@@ -153,70 +153,70 @@ function PRRow({ pr }: { pr: PullRequest }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function GlobalPullsPage() {
   const [repos, setRepos] = useState<Repo[]>([]);
-  const [reposLoading, setReposLoading] = useState(true);
+  const [reposLoaded, setReposLoaded] = useState(false);
 
   const [selectedRepo, setSelectedRepo] = useState<string>("__all__");
   const [tab, setTab] = useState<"open" | "closed" | "merged">("open");
+  const [page, setPage] = useState(1);
+  const LIMIT = 20;
 
   const [prs, setPrs] = useState<PullRequest[]>([]);
   const [total, setTotal] = useState(0);
+  // Persist open-PR count across tab switches so the chip never shows "?"
+  const [openCount, setOpenCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Fetch user repos ─────────────────────────────────────────────────────
-  const fetchRepos = useCallback(async () => {
-    setReposLoading(true);
-    try {
-      const json = await apiFetch<{ success: boolean; data: { repositories: Repo[] } }>("/api/v1/repositories");
-      if (json.success) setRepos(json.data?.repositories ?? []);
-    } catch {
-      // ignore
-    } finally {
-      setReposLoading(false);
-    }
+  // ── Fetch user repos once (dropdown only) ───────────────────────────────
+  useEffect(() => {
+    apiFetch<{ success: boolean; data: { repositories: Repo[] } }>("/api/v1/repositories")
+      .then((json) => { if (json.success) setRepos(json.data?.repositories ?? []); })
+      .catch(() => {/* ignore */})
+      .finally(() => setReposLoaded(true));
   }, []);
 
-  useEffect(() => { fetchRepos(); }, [fetchRepos]);
-
-  // ── Fetch PRs across selected repo(s) ───────────────────────────────────
+  // ── Fetch PRs — single backend call ─────────────────────────────────────
   const fetchPRs = useCallback(async () => {
-    if (repos.length === 0 && !reposLoading) return;
     setLoading(true);
     setError(null);
     try {
-      const targets = selectedRepo === "__all__" ? repos : repos.filter((r) => r.slug === selectedRepo);
-      const results = await Promise.all(
-        targets.map(async (repo) => {
-          try {
-            const json = await apiFetch<{ success: boolean; data: { pullRequests: PullRequest[] } }>(
-              `/api/v1/repositories/${repo.slug}/pulls?state=${tab}`
-            );
-            if (!json.success) return [] as PullRequest[];
-            // Tag each PR with the repo's fullName for navigation
-            return (json.data?.pullRequests ?? []).map((pr) => ({
-              ...pr,
-              repoFullName: repo.fullName ?? repo.slug,
-            })) as PullRequest[];
-          } catch {
-            return [] as PullRequest[];
-          }
-        })
+      const repoSlug = selectedRepo === "__all__" ? "" : selectedRepo;
+      const params = new URLSearchParams({
+        state: tab,
+        page: String(page),
+        limit: String(LIMIT),
+        ...(repoSlug ? { repo: repoSlug } : {}),
+      });
+      const json = await apiFetch<{ success: boolean; data: { pullRequests: PullRequest[]; total: number } }>(
+        `/api/v1/pulls?${params}`
       );
-      const all = results.flat().sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setPrs(all);
-      setTotal(all.length);
+      if (!json.success) throw new Error("Failed to fetch pull requests");
+      const fetchedPRs = json.data?.pullRequests ?? [];
+      const fetchedTotal = json.data?.total ?? 0;
+      setPrs(fetchedPRs);
+      setTotal(fetchedTotal);
+      // Keep a persistent open count for the header chip
+      if (tab === "open") setOpenCount(fetchedTotal);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setLoading(false);
     }
-  }, [repos, selectedRepo, tab, reposLoading]);
+  }, [selectedRepo, tab, page]);
 
   useEffect(() => {
-    if (!reposLoading) fetchPRs();
-  }, [fetchPRs, reposLoading]);
+    if (reposLoaded) fetchPRs();
+  }, [fetchPRs, reposLoaded]);
+
+  // Reset page when repo or tab changes
+  const handleRepoChange = (slug: string) => {
+    setSelectedRepo(slug);
+    setPage(1);
+  };
+  const handleTabChange = (t: "open" | "closed" | "merged") => {
+    setTab(t);
+    setPage(1);
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
@@ -248,8 +248,8 @@ export default function GlobalPullsPage() {
             </svg>
             <select
               value={selectedRepo}
-              onChange={(e) => setSelectedRepo(e.target.value)}
-              disabled={reposLoading}
+              onChange={(e) => { handleRepoChange(e.target.value); setOpenCount(null); }}
+              disabled={loading}
               className="bg-[#0d0d14] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-white/70 focus:outline-none focus:border-indigo-400/40 cursor-pointer appearance-none pr-8 min-w-[180px]"
             >
               <option value="__all__">All repositories</option>
@@ -263,7 +263,7 @@ export default function GlobalPullsPage() {
           <div className="flex items-center gap-2 text-xs text-white/35">
             <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.07]">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-              {loading ? "…" : tab === "open" ? total : "?"} open
+              {openCount !== null ? openCount : (loading ? "…" : total)} open
             </span>
             <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.07]">
               <span className="w-1.5 h-1.5 rounded-full bg-violet-400 inline-block" />
@@ -279,7 +279,7 @@ export default function GlobalPullsPage() {
           <div className="flex items-center gap-1 px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
             {/* Open */}
             <button
-              onClick={() => setTab("open")}
+              onClick={() => handleTabChange("open")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
                 tab === "open" ? "text-white bg-white/[0.07]" : "text-white/40 hover:text-white/70"
               }`}
@@ -318,7 +318,7 @@ export default function GlobalPullsPage() {
           </div>
 
           {/* Content */}
-          {loading || reposLoading ? (
+          {loading ? (
             <div className="flex flex-col">
               {[...Array(6)].map((_, i) => (
                 <div key={i} className="flex items-start gap-3 px-4 py-3.5 border-b border-white/[0.05] last:border-0 animate-pulse">
