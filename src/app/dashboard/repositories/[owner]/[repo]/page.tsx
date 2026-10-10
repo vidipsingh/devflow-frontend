@@ -708,23 +708,39 @@ export default function RepositoryDetailPage({
                 {/* Blob header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.07] bg-white/[0.015]">
                   <div className="flex items-center gap-3 text-sm min-w-0">
-                    <button
-                      onClick={closeBlob}
-                      className="flex items-center gap-1.5 text-white/35 hover:text-indigo-300 transition-colors shrink-0 cursor-pointer"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                      </svg>
-                    </button>
-                    <FileIcon name={activeBlob.name} isDir={false} />
-                    <span className="text-white/70 font-mono text-xs truncate">{activeBlob.path}</span>
-                    <span className="text-white/25 text-xs shrink-0">
-                      {activeBlob.size < 1024 ? `${activeBlob.size} B` : `${(activeBlob.size / 1024).toFixed(1)} KB`}
-                    </span>
-                  </div>
-                  <code className="text-xs font-mono text-white/20 bg-white/[0.04] px-2 py-0.5 rounded-md shrink-0">
-                    {activeBlob.sha.slice(0, 8)}
-                  </code>
+                      <button
+                        onClick={closeBlob}
+                        className="flex items-center gap-1.5 text-white/35 hover:text-indigo-300 transition-colors shrink-0 cursor-pointer"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                      </button>
+                      <FileIcon name={activeBlob.name} isDir={false} />
+                      <span className="text-white/70 font-mono text-xs truncate">{activeBlob.path}</span>
+                      <span className="text-white/25 text-xs shrink-0">
+                        {activeBlob.size < 1024 ? `${activeBlob.size} B` : `${(activeBlob.size / 1024).toFixed(1)} KB`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Edit button — navigate to in-browser editor */}
+                      <button
+                        onClick={() => {
+                          const q = new URLSearchParams({ path: activeBlob.path, branch: currentBranch });
+                          router.push(`/dashboard/repositories/${name}/edit?${q}`);
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/25 text-indigo-300/80 hover:text-indigo-200 text-xs font-medium transition-all cursor-pointer"
+                        title="Edit this file"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit
+                      </button>
+                      <code className="text-xs font-mono text-white/20 bg-white/[0.04] px-2 py-0.5 rounded-md">
+                        {activeBlob.sha.slice(0, 8)}
+                      </code>
+                    </div>
                 </div>
 
                 {/* Line numbers + content */}

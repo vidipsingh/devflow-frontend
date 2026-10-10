@@ -81,6 +81,13 @@ export interface UploadFilePayload {
   branch?: string;    // defaults to repo.defaultBranch
 }
 
+export interface EditFilePayload {
+  path: string;       // e.g. "src/main.go"
+  content: string;    // plain-text content
+  message?: string;   // commit message
+  branch?: string;    // defaults to repo.defaultBranch
+}
+
 export interface UseRepoDetailReturn {
   repo: RepoDetailMeta | null;
   tree: FileTreeEntry[];
@@ -100,6 +107,7 @@ export interface UseRepoDetailReturn {
   closeBlob: () => void;
   switchBranch: (branch: string) => void;
   uploadFile: (payload: UploadFilePayload) => Promise<boolean>;
+  editFile: (payload: EditFilePayload) => Promise<boolean>;
   refetchTree: () => void;
 }
 
@@ -265,6 +273,36 @@ export function useRepoDetail(repoSlug: string): UseRepoDetailReturn {
     [repoSlug, currentBranch, currentPath, fetchTree, fetchCommits]
   );
 
+  // ── Edit a file (plain-text, no base64) ─────────────────────────────────
+  const editFile = useCallback(
+    async (payload: EditFilePayload): Promise<boolean> => {
+      setIsUploading(true);
+      setUploadError(null);
+      setUploadSuccess(false);
+      try {
+        await apiFetch(`/api/v1/repositories/${encodeSlug(repoSlug)}/files`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            path: payload.path,
+            content: payload.content,
+            message: payload.message ?? `Edit ${payload.path.split("/").pop()}`,
+            branch: payload.branch ?? currentBranch,
+          }),
+        });
+        setUploadSuccess(true);
+        await fetchTree(currentBranch, currentPath);
+        await fetchCommits(currentBranch);
+        return true;
+      } catch (e) {
+        setUploadError(e instanceof Error ? e.message : "Save failed");
+        return false;
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [repoSlug, currentBranch, currentPath, fetchTree, fetchCommits]
+  );
+
   const refetchTree = useCallback(() => {
     fetchTree(currentBranch, currentPath);
   }, [fetchTree, currentBranch, currentPath]);
@@ -288,6 +326,7 @@ export function useRepoDetail(repoSlug: string): UseRepoDetailReturn {
     closeBlob,
     switchBranch,
     uploadFile,
+    editFile,
     refetchTree,
   };
 }
