@@ -1,7 +1,7 @@
 
 "use client";
 
-import { use, useState, useEffect, useCallback } from "react";
+import { use, useState, useEffect, useCallback, useRef, Fragment } from "react";
 import Link from "next/link";
 import {
   usePullRequests,
@@ -11,6 +11,7 @@ import {
   DiffHunk,
   DiffLine,
   PRDiff,
+  InlineFileComments,
 } from "@/hooks/usePullRequests";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -99,70 +100,435 @@ function FileStatusBadge({ status }: { status: FileDiff["status"] }) {
   );
 }
 
-// ─── Hunk renderer ────────────────────────────────────────────────────────────
+// ─── Inline comment box ───────────────────────────────────────────────────────
 
-function DiffHunkBlock({ hunk }: { hunk: DiffHunk }) {
+function InlineCommentBox({
+  onSubmit,
+  onCancel,
+}: {
+  onSubmit: (body: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [body, setBody] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => { ref.current?.focus(); }, []);
+
+  async function handleSubmit() {
+    if (!body.trim()) return;
+    setSubmitting(true);
+    await onSubmit(body.trim());
+    setSubmitting(false);
+    setBody("");
+  }
+
   return (
-    <div className="font-mono text-xs">
-      {/* Hunk header */}
-      <div className="flex items-center bg-indigo-500/10 border-y border-indigo-500/20 px-3 py-1 text-indigo-300/70 select-none">
-        <span className="text-indigo-400 font-semibold">{hunk.header}</span>
-      </div>
-      {/* Lines */}
-      {hunk.lines.map((line: DiffLine, idx: number) => {
-        const isAdd = line.type === "addition";
-        const isDel = line.type === "deletion";
-        const rowBg = isAdd
-          ? "bg-emerald-500/[0.08] hover:bg-emerald-500/[0.13]"
-          : isDel
-          ? "bg-rose-500/[0.08] hover:bg-rose-500/[0.13]"
-          : "hover:bg-white/[0.02]";
-        const gutterBg = isAdd
-          ? "bg-emerald-500/[0.12]"
-          : isDel
-          ? "bg-rose-500/[0.12]"
-          : "bg-transparent";
-        const contentColor = isAdd
-          ? "text-emerald-200"
-          : isDel
-          ? "text-rose-200"
-          : "text-white/70";
-        const lineNumColor = isAdd
-          ? "text-emerald-500/60"
-          : isDel
-          ? "text-rose-500/60"
-          : "text-white/20";
-        const prefix = isAdd ? "+" : isDel ? "−" : " ";
-        const prefixColor = isAdd ? "text-emerald-400" : isDel ? "text-rose-400" : "text-white/20";
-
-        return (
-          <div key={idx} className={`flex group ${rowBg} transition-colors`}>
-            {/* Old line number */}
-            <div className={`w-12 text-right pr-2 py-[3px] select-none shrink-0 ${gutterBg} ${lineNumColor} border-r border-white/[0.05]`}>
-              {line.oldNo ?? ""}
-            </div>
-            {/* New line number */}
-            <div className={`w-12 text-right pr-2 py-[3px] select-none shrink-0 ${gutterBg} ${lineNumColor} border-r border-white/[0.05]`}>
-              {line.newNo ?? ""}
-            </div>
-            {/* Prefix */}
-            <div className={`w-6 text-center py-[3px] select-none shrink-0 ${prefixColor} font-bold`}>
-              {prefix}
-            </div>
-            {/* Content */}
-            <div className={`flex-1 py-[3px] pr-4 whitespace-pre ${contentColor} overflow-x-auto`}>
-              {line.content.substring(1)}
+    <tr>
+      <td colSpan={5} className="p-0">
+        <div className="mx-4 my-2 border border-indigo-500/30 rounded-xl bg-[#0d0d18] overflow-hidden">
+          <div className="px-4 pt-3 pb-1 text-xs text-white/40 border-b border-white/[0.06]">
+            Write a comment
+          </div>
+          <div className="p-3 space-y-2">
+            <textarea
+              ref={ref}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Leave a comment on this line…"
+              rows={3}
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-colors"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={onCancel}
+                className="px-3 py-1.5 text-xs text-white/50 hover:text-white/80 border border-white/[0.08] hover:border-white/[0.16] rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!body.trim() || submitting}
+                className="px-3 py-1.5 text-xs bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 text-white rounded-lg font-medium transition-colors cursor-pointer"
+              >
+                {submitting ? "Submitting…" : "Comment"}
+              </button>
             </div>
           </div>
-        );
-      })}
-    </div>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ─── Inline comment thread row ────────────────────────────────────────────────
+
+function InlineCommentThread({
+  comments,
+  filePath,
+  lineNumber,
+  onReply,
+  onEdit,
+  onDelete,
+  onResolve,
+}: {
+  comments: PRComment[];
+  filePath: string;
+  lineNumber: number;
+  onReply: (filePath: string, lineNumber: number, body: string) => Promise<void>;
+  onEdit: (commentId: string, newBody: string) => Promise<void>;
+  onDelete: (commentId: string) => Promise<void>;
+  onResolve: (filePath: string, lineNumber: number) => Promise<void>;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState("");
+  const [replying, setReplying] = useState(false);
+  const [replyBody, setReplyBody] = useState("");
+  const [replySubmitting, setReplySubmitting] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [collapsed, setCollapsed] = useState(comments.every((c) => c.resolved));
+  const replyRef = useRef<HTMLTextAreaElement>(null);
+
+  const isResolved = comments.every((c) => c.resolved);
+
+  function startEdit(c: PRComment) {
+    setEditingId(c.id);
+    setEditBody(c.body);
+  }
+
+  async function submitEdit(commentId: string) {
+    await onEdit(commentId, editBody);
+    setEditingId(null);
+  }
+
+  async function submitReply() {
+    if (!replyBody.trim()) return;
+    setReplySubmitting(true);
+    await onReply(filePath, lineNumber, replyBody.trim());
+    setReplyBody("");
+    setReplying(false);
+    setReplySubmitting(false);
+  }
+
+  async function handleResolve() {
+    setResolving(true);
+    await onResolve(filePath, lineNumber);
+    setResolving(false);
+    setCollapsed(true);
+  }
+
+  // Collapsed resolved thread — show a single summary row
+  if (collapsed && isResolved) {
+    return (
+      <tr>
+        <td colSpan={5} className="p-0">
+          <div className="mx-4 my-1 flex items-center gap-2 px-3 py-1.5 bg-emerald-500/[0.06] border border-emerald-500/20 rounded-lg">
+            <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-xs text-emerald-400/80 flex-1">
+              {comments.length} comment{comments.length !== 1 ? "s" : ""} — resolved
+            </span>
+            <button
+              onClick={() => setCollapsed(false)}
+              className="text-[10px] text-white/30 hover:text-white/60 transition-colors cursor-pointer"
+            >
+              Show
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr>
+      <td colSpan={5} className="p-0">
+        <div className={`mx-4 my-1 border rounded-xl overflow-hidden ${isResolved ? "border-emerald-500/20 bg-[#0a0d0a]" : "border-white/[0.08] bg-[#0d0d14]"}`}>
+          {/* Resolved banner */}
+          {isResolved && (
+            <div className="flex items-center gap-2 px-4 py-1.5 bg-emerald-500/[0.08] border-b border-emerald-500/20">
+              <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-xs text-emerald-400/80">Conversation resolved</span>
+              <button onClick={() => setCollapsed(true)} className="ml-auto text-[10px] text-white/30 hover:text-white/60 cursor-pointer">
+                Hide
+              </button>
+            </div>
+          )}
+
+          {/* Comment list */}
+          <div className="divide-y divide-white/[0.06]">
+            {comments.map((c) => (
+              <div key={c.id} className="group px-4 py-2.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px] font-bold text-indigo-300 shrink-0">
+                    {c.authorName[0]?.toUpperCase()}
+                  </div>
+                  <span className="text-xs font-medium text-white/60">{c.authorName}</span>
+                  <span className="text-[10px] text-white/25">{timeAgo(c.createdAt)}</span>
+                  {c.isEdited && <span className="text-[10px] text-white/20">· edited</span>}
+                  <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => startEdit(c)}
+                      className="p-1 rounded text-white/30 hover:text-white/70 hover:bg-white/[0.06] transition-colors cursor-pointer"
+                      title="Edit"
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => onDelete(c.id)}
+                      className="p-1 rounded text-white/30 hover:text-rose-400 hover:bg-rose-500/[0.08] transition-colors cursor-pointer"
+                      title="Delete"
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                {editingId === c.id ? (
+                  <div className="space-y-2 mt-1">
+                    <textarea
+                      value={editBody}
+                      onChange={(e) => setEditBody(e.target.value)}
+                      rows={3}
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white/80 resize-none focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-colors"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="px-3 py-1 text-xs text-white/40 hover:text-white/70 border border-white/[0.08] rounded-lg transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => submitEdit(c.id)}
+                        disabled={!editBody.trim()}
+                        className="px-3 py-1 text-xs bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 text-white rounded-lg font-medium transition-colors cursor-pointer"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-white/60 whitespace-pre-wrap leading-relaxed pl-7">{c.body}</p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Reply box */}
+          {replying ? (
+            <div className="px-4 py-3 border-t border-white/[0.06] space-y-2">
+              <textarea
+                ref={replyRef}
+                value={replyBody}
+                onChange={(e) => setReplyBody(e.target.value)}
+                placeholder="Reply to this thread…"
+                rows={3}
+                autoFocus
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-colors"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => { setReplying(false); setReplyBody(""); }}
+                  className="px-3 py-1.5 text-xs text-white/40 hover:text-white/70 border border-white/[0.08] rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitReply}
+                  disabled={!replyBody.trim() || replySubmitting}
+                  className="px-3 py-1.5 text-xs bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 text-white rounded-lg font-medium transition-colors cursor-pointer"
+                >
+                  {replySubmitting ? "Replying…" : "Reply"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Thread actions bar */
+            <div className="flex items-center gap-2 px-4 py-2 border-t border-white/[0.06] bg-white/[0.015]">
+              <button
+                onClick={() => setReplying(true)}
+                className="flex items-center gap-1 text-xs text-indigo-400/70 hover:text-indigo-300 transition-colors cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+                Reply
+              </button>
+              {!isResolved && (
+                <button
+                  onClick={handleResolve}
+                  disabled={resolving}
+                  className="ml-auto flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/40 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {resolving ? "Resolving…" : "Resolve conversation"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ─── Hunk renderer ────────────────────────────────────────────────────────────
+
+type InlineCommentMap = Map<string, PRComment[]>;
+
+function DiffHunkBlock({
+  hunk,
+  filePath,
+  commentMap,
+  onAddComment,
+  onEditComment,
+  onDeleteComment,
+  onResolveThread,
+}: {
+  hunk: DiffHunk;
+  filePath: string;
+  commentMap: InlineCommentMap;
+  onAddComment: (filePath: string, lineNumber: number, body: string) => Promise<void>;
+  onEditComment: (commentId: string, body: string) => Promise<void>;
+  onDeleteComment: (commentId: string) => Promise<void>;
+  onResolveThread: (filePath: string, lineNumber: number) => Promise<void>;
+}) {
+  // Track which line has the compose box open — uses a unique composite key
+  // "del:N", "add:N", or "ctx:N" to prevent oldNo/newNo collisions across line types.
+  const [commentingLine, setCommentingLine] = useState<string | null>(null);
+
+  return (
+    <table className="w-full font-mono text-xs border-collapse">
+      <tbody>
+        {/* Hunk header */}
+        <tr>
+          <td colSpan={5} className="bg-indigo-500/10 border-y border-indigo-500/20 px-3 py-1 text-indigo-300/70 select-none">
+            <span className="text-indigo-400 font-semibold">{hunk.header}</span>
+          </td>
+        </tr>
+        {hunk.lines.map((line: DiffLine, idx: number) => {
+          const isAdd = line.type === "addition";
+          const isDel = line.type === "deletion";
+          // Unique key per rendered row — prevents oldNo=5 deletion and newNo=5 context/addition
+          // from both matching the same commentingLine number.
+          const lineKey = isDel
+            ? `del:${line.oldNo ?? idx}`
+            : isAdd
+            ? `add:${line.newNo ?? idx}`
+            : `ctx:${line.newNo ?? line.oldNo ?? idx}`;
+          // Numeric line number stored in the comment (use newNo when available, else oldNo)
+          const lineNo = line.newNo ?? line.oldNo ?? 0;
+          const commentKey = `${filePath}:${lineNo}`;
+          const threadComments = commentMap.get(commentKey) ?? [];
+          const rowBg = isAdd
+            ? "bg-emerald-500/[0.08] hover:bg-emerald-500/[0.13]"
+            : isDel
+            ? "bg-rose-500/[0.08] hover:bg-rose-500/[0.13]"
+            : "hover:bg-white/[0.02]";
+          const gutterBg = isAdd
+            ? "bg-emerald-500/[0.12]"
+            : isDel
+            ? "bg-rose-500/[0.12]"
+            : "bg-transparent";
+          const contentColor = isAdd ? "text-emerald-200" : isDel ? "text-rose-200" : "text-white/70";
+          const lineNumColor = isAdd ? "text-emerald-500/60" : isDel ? "text-rose-500/60" : "text-white/20";
+          const prefix = isAdd ? "+" : isDel ? "−" : " ";
+          const prefixColor = isAdd ? "text-emerald-400" : isDel ? "text-rose-400" : "text-white/20";
+
+          return (
+            <Fragment key={idx}>
+              <tr className={`${rowBg} transition-colors`}>
+                {/* Old line number */}
+                <td className={`w-12 text-right pr-2 py-[3px] select-none ${gutterBg} ${lineNumColor} border-r border-white/[0.05]`}>
+                  {line.oldNo ?? ""}
+                </td>
+                {/* New line number */}
+                <td className={`w-12 text-right pr-2 py-[3px] select-none ${gutterBg} ${lineNumColor} border-r border-white/[0.05]`}>
+                  {line.newNo ?? ""}
+                </td>
+                {/* Prefix */}
+                <td className={`w-6 text-center py-[3px] select-none ${prefixColor} font-bold`}>
+                  {prefix}
+                </td>
+                {/* Content */}
+                <td className={`py-[3px] pr-4 whitespace-pre ${contentColor} overflow-x-auto`}>
+                  {line.content.substring(1)}
+                </td>
+                {/* + button — always visible at low opacity, full on hover */}
+                <td className="w-8 py-[3px] pr-1 text-right select-none">
+                  <button
+                    onClick={() => setCommentingLine(commentingLine === lineKey ? null : lineKey)}
+                    title="Add inline comment"
+                    className={`w-5 h-5 rounded inline-flex items-center justify-center transition-all cursor-pointer ${
+                      commentingLine === lineKey
+                        ? "opacity-100 text-white bg-indigo-500"
+                        : "opacity-30 hover:opacity-100 text-indigo-400 hover:text-white hover:bg-indigo-500"
+                    }`}
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+
+              {/* Existing thread */}
+              {threadComments.length > 0 && (
+                <InlineCommentThread
+                  comments={threadComments}
+                  filePath={filePath}
+                  lineNumber={lineNo}
+                  onReply={onAddComment}
+                  onEdit={onEditComment}
+                  onDelete={onDeleteComment}
+                  onResolve={onResolveThread}
+                />
+              )}
+
+              {/* Compose box — only shown for the exact row whose lineKey matches */}
+              {commentingLine === lineKey && (
+                <InlineCommentBox
+                  onSubmit={async (body) => {
+                    await onAddComment(filePath, lineNo, body);
+                    setCommentingLine(null);
+                  }}
+                  onCancel={() => setCommentingLine(null)}
+                />
+              )}
+            </Fragment>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
 // ─── Single file diff card ────────────────────────────────────────────────────
 
-function FileDiffCard({ file }: { file: FileDiff }) {
+function FileDiffCard({
+  file,
+  commentMap,
+  onAddComment,
+  onEditComment,
+  onDeleteComment,
+  onResolveThread,
+}: {
+  file: FileDiff;
+  commentMap: InlineCommentMap;
+  onAddComment: (filePath: string, lineNumber: number, body: string) => Promise<void>;
+  onEditComment: (commentId: string, body: string) => Promise<void>;
+  onDeleteComment: (commentId: string) => Promise<void>;
+  onResolveThread: (filePath: string, lineNumber: number) => Promise<void>;
+}) {
   const [collapsed, setCollapsed] = useState(file.hunks.length === 0);
   const ext = fileExt(file.path);
 
@@ -204,7 +570,16 @@ function FileDiffCard({ file }: { file: FileDiff }) {
         ) : (
           <div className="overflow-x-auto">
             {file.hunks.map((hunk, i) => (
-              <DiffHunkBlock key={i} hunk={hunk} />
+              <DiffHunkBlock
+                key={i}
+                hunk={hunk}
+                filePath={file.path}
+                commentMap={commentMap}
+                onAddComment={onAddComment}
+                onEditComment={onEditComment}
+                onDeleteComment={onDeleteComment}
+                onResolveThread={onResolveThread}
+              />
             ))}
           </div>
         )
@@ -216,26 +591,73 @@ function FileDiffCard({ file }: { file: FileDiff }) {
 // ─── Changes tab ─────────────────────────────────────────────────────────────
 
 function ChangesTab({
-  repoName,
   pr,
   fetchDiff,
+  fetchInlineComments,
+  onAddInlineComment,
+  onEditInlineComment,
+  onDeleteInlineComment,
+  onResolveInlineThread,
 }: {
-  repoName: string;
   pr: PullRequest;
   fetchDiff: (n: number) => Promise<PRDiff | null>;
+  fetchInlineComments: (n: number) => Promise<InlineFileComments[]>;
+  onAddInlineComment: (filePath: string, lineNumber: number, body: string) => Promise<void>;
+  onEditInlineComment: (commentId: string, body: string) => Promise<void>;
+  onDeleteInlineComment: (commentId: string) => Promise<void>;
+  onResolveInlineThread: (filePath: string, lineNumber: number) => Promise<void>;
 }) {
   const [diff, setDiff] = useState<PRDiff | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  // Map of "filePath:lineNumber" -> comments
+  const [commentMap, setCommentMap] = useState<InlineCommentMap>(new Map());
+
+  const loadInlineComments = useCallback(async () => {
+    const groups = await fetchInlineComments(pr.number);
+    const m = new Map<string, PRComment[]>();
+    groups.forEach(({ filePath, comments }) => {
+      comments.forEach((c) => {
+        const k = `${filePath}:${c.lineNumber}`;
+        const arr = m.get(k) ?? [];
+        arr.push(c);
+        m.set(k, arr);
+      });
+    });
+    setCommentMap(m);
+  }, [fetchInlineComments, pr.number]);
 
   useEffect(() => {
     setLoading(true);
-    fetchDiff(pr.number).then((d) => {
+    Promise.all([
+      fetchDiff(pr.number),
+      loadInlineComments(),
+    ]).then(([d]) => {
       if (!d) setErr("Failed to load changes");
       else setDiff(d);
       setLoading(false);
     });
-  }, [pr.number, fetchDiff]);
+  }, [pr.number, fetchDiff, loadInlineComments]);
+
+  async function handleAddComment(filePath: string, lineNumber: number, body: string) {
+    await onAddInlineComment(filePath, lineNumber, body);
+    await loadInlineComments();
+  }
+
+  async function handleEditComment(commentId: string, body: string) {
+    await onEditInlineComment(commentId, body);
+    await loadInlineComments();
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    await onDeleteInlineComment(commentId);
+    await loadInlineComments();
+  }
+
+  async function handleResolveThread(filePath: string, lineNumber: number) {
+    await onResolveInlineThread(filePath, lineNumber);
+    await loadInlineComments();
+  }
 
   if (loading) {
     return (
@@ -282,6 +704,11 @@ function ChangesTab({
           <span className="text-white/70 font-medium">{diff.files.length}</span> file{diff.files.length !== 1 ? "s" : ""} changed
         </span>
         <DiffStatBar additions={diff.additions} deletions={diff.deletions} />
+        {commentMap.size > 0 && (
+          <span className="text-xs text-indigo-300/60 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+            {[...commentMap.values()].reduce((a, b) => a + b.length, 0)} inline comment{[...commentMap.values()].reduce((a, b) => a + b.length, 0) !== 1 ? "s" : ""}
+          </span>
+        )}
       </div>
 
       {/* File jump list */}
@@ -305,10 +732,94 @@ function ChangesTab({
             key={f.path}
             id={`file-${f.path.replace(/\//g, "-").replace(/\./g, "_")}`}
           >
-            <FileDiffCard file={f} />
+            <FileDiffCard
+              file={f}
+              commentMap={commentMap}
+              onAddComment={handleAddComment}
+              onEditComment={handleEditComment}
+              onDeleteComment={handleDeleteComment}
+              onResolveThread={handleResolveThread}
+            />
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── Inline thread card for Conversation tab (read-only) ─────────────────────
+
+function InlineConversationThread({
+  filePath,
+  lineNumber,
+  comments,
+  isResolved,
+}: {
+  filePath: string;
+  lineNumber: number;
+  comments: PRComment[];
+  isResolved: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(isResolved);
+
+  return (
+    <div className={`border rounded-xl overflow-hidden ${
+      isResolved
+        ? "border-emerald-500/20 bg-[#0a0d0a]"
+        : "border-white/[0.08] bg-[#0d0d14]"
+    }`}>
+      {/* Thread header — file path + line + resolved badge */}
+      <div className={`flex items-center gap-2 px-4 py-2 border-b ${
+        isResolved ? "border-emerald-500/15 bg-emerald-500/[0.05]" : "border-white/[0.06] bg-white/[0.02]"
+      }`}>
+        <svg className="w-3.5 h-3.5 text-white/25 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+        <span className="text-xs font-mono text-white/50 truncate flex-1">
+          {filePath}
+          {lineNumber > 0 && <span className="text-white/25">:{lineNumber}</span>}
+        </span>
+        {isResolved ? (
+          <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full shrink-0">
+            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4" />
+            </svg>
+            Resolved
+          </span>
+        ) : (
+          <span className="text-[10px] text-indigo-400/60 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded-full shrink-0">
+            {comments.length} comment{comments.length !== 1 ? "s" : ""}
+          </span>
+        )}
+        <button
+          onClick={() => setCollapsed((p) => !p)}
+          className="text-[10px] text-white/25 hover:text-white/60 transition-colors shrink-0 cursor-pointer"
+        >
+          {collapsed ? "Show" : "Hide"}
+        </button>
+      </div>
+
+      {/* Thread body */}
+      {!collapsed && (
+        <div className="divide-y divide-white/[0.05]">
+          {comments.map((c) => (
+            <div key={c.id} className="px-4 py-2.5">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px] font-bold text-indigo-300 shrink-0">
+                  {c.authorName[0]?.toUpperCase()}
+                </div>
+                <span className="text-xs font-medium text-white/60">{c.authorName}</span>
+                <span className="text-[10px] text-white/25">{timeAgo(c.createdAt)}</span>
+                {c.isEdited && <span className="text-[10px] text-white/20">· edited</span>}
+                {c.resolved && (
+                  <span className="ml-auto text-[10px] text-emerald-400/60">resolved</span>
+                )}
+              </div>
+              <p className="text-sm text-white/55 whitespace-pre-wrap leading-relaxed pl-7">{c.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -359,27 +870,73 @@ function ConversationTab({
           </div>
         )}
 
-        {/* Comments */}
-        {(pr.comments ?? []).map((c: PRComment) => (
-          <div key={c.id} className="border border-white/[0.08] rounded-xl bg-[#0d0d14] overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.02] border-b border-white/[0.06]">
-              <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-300">
-                {c.authorName[0]?.toUpperCase()}
-              </div>
-              <span className="text-sm font-medium text-white/70">{c.authorName}</span>
-              <span className="text-white/25 text-xs">{timeAgo(c.createdAt)}</span>
-              {c.isEdited && <span className="text-white/20 text-xs">· edited</span>}
-              {c.filePath && (
-                <span className="ml-auto text-white/25 text-xs font-mono">
-                  {c.filePath}{c.lineNumber ? `:${c.lineNumber}` : ""}
-                </span>
+        {/* ── Separate regular comments from inline threads ── */}
+        {(() => {
+          const allComments = pr.comments ?? [];
+          const regular = allComments.filter((c: PRComment) => !c.filePath);
+
+          // Group inline comments by "filePath:lineNumber"
+          const inlineMap = new Map<string, PRComment[]>();
+          allComments
+            .filter((c: PRComment) => !!c.filePath)
+            .forEach((c: PRComment) => {
+              const k = `${c.filePath}:${c.lineNumber ?? 0}`;
+              const arr = inlineMap.get(k) ?? [];
+              arr.push(c);
+              inlineMap.set(k, arr);
+            });
+
+          return (
+            <>
+              {/* Regular PR-level comments */}
+              {regular.map((c: PRComment) => (
+                <div key={c.id} className="border border-white/[0.08] rounded-xl bg-[#0d0d14] overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.02] border-b border-white/[0.06]">
+                    <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-300">
+                      {c.authorName[0]?.toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-white/70">{c.authorName}</span>
+                    <span className="text-white/25 text-xs">{timeAgo(c.createdAt)}</span>
+                    {c.isEdited && <span className="text-white/20 text-xs">· edited</span>}
+                  </div>
+                  <div className="px-4 py-3 text-sm text-white/60 whitespace-pre-wrap leading-relaxed">
+                    {c.body}
+                  </div>
+                </div>
+              ))}
+
+              {/* Inline comment threads section */}
+              {inlineMap.size > 0 && (
+                <div className="space-y-3">
+                  {/* Section heading */}
+                  <div className="flex items-center gap-2 px-1 pt-1">
+                    <svg className="w-3.5 h-3.5 text-indigo-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                    <span className="text-xs font-medium text-white/30 uppercase tracking-wider">
+                      Inline threads ({inlineMap.size})
+                    </span>
+                    <div className="flex-1 h-px bg-white/[0.06]" />
+                  </div>
+
+                  {[...inlineMap.entries()].map(([threadKey, threadComments]) => {
+                    const isResolved = threadComments.every((c) => c.resolved);
+                    const firstComment = threadComments[0];
+                    return (
+                      <InlineConversationThread
+                        key={threadKey}
+                        filePath={firstComment.filePath!}
+                        lineNumber={firstComment.lineNumber ?? 0}
+                        comments={threadComments}
+                        isResolved={isResolved}
+                      />
+                    );
+                  })}
+                </div>
               )}
-            </div>
-            <div className="px-4 py-3 text-sm text-white/60 whitespace-pre-wrap leading-relaxed">
-              {c.body}
-            </div>
-          </div>
-        ))}
+            </>
+          );
+        })()}
 
         {/* Merge status */}
         {pr.state === "open" && (
@@ -617,8 +1174,10 @@ export default function PRDetailPage({
   const name = `${owner}/${repo}`;
   const num = parseInt(numStr, 10);
 
-  const { fetchPR, fetchDiff, mergePR, updatePR, addComment, actionLoading } =
-    usePullRequests(name);
+  const {
+    fetchPR, fetchDiff, mergePR, updatePR, addComment, actionLoading,
+    fetchInlineComments, addInlineComment, editInlineComment, deleteInlineComment, resolveInlineThread,
+  } = usePullRequests(name);
 
   const [pr, setPr] = useState<PullRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -796,9 +1355,21 @@ export default function PRDetailPage({
           )}
           {tab === "changes" && (
             <ChangesTab
-              repoName={name}
               pr={pr}
               fetchDiff={fetchDiff}
+              fetchInlineComments={fetchInlineComments}
+              onAddInlineComment={async (filePath, lineNumber, body) => {
+                await addInlineComment(num, filePath, lineNumber, body);
+              }}
+              onEditInlineComment={async (commentId, body) => {
+                await editInlineComment(num, commentId, body);
+              }}
+              onDeleteInlineComment={async (commentId) => {
+                await deleteInlineComment(num, commentId);
+              }}
+              onResolveInlineThread={async (filePath, lineNumber) => {
+                await resolveInlineThread(num, filePath, lineNumber);
+              }}
             />
           )}
           {tab === "commits" && <CommitsTab pr={pr} />}

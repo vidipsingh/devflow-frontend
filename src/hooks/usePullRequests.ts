@@ -19,6 +19,7 @@ export interface PRComment {
   filePath: string;
   lineNumber: number;
   isEdited: boolean;
+  resolved: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -109,6 +110,12 @@ export interface PRDiff {
   files: FileDiff[];
   additions: number;
   deletions: number;
+}
+
+// Inline comments grouped by file (returned by GET .../inline-comments)
+export interface InlineFileComments {
+  filePath: string;
+  comments: PRComment[];
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -332,6 +339,79 @@ export function usePullRequests(repoSlug: string) {
     [repoSlug]
   );
 
+  // ── Fetch inline comments ─────────────────────────────────────────────────
+  const fetchInlineComments = useCallback(
+    async (number: number): Promise<InlineFileComments[]> => {
+      try {
+        const json = await apiFetch<{ data: InlineFileComments[] }>(
+          `/api/v1/repositories/${apiSlug}/pulls/${number}/inline-comments`
+        );
+        return json.data ?? [];
+      } catch {
+        return [];
+      }
+    },
+    [repoSlug]
+  );
+
+  // ── Add inline comment ────────────────────────────────────────────────────
+  const addInlineComment = useCallback(
+    async (number: number, filePath: string, lineNumber: number, body: string): Promise<boolean> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        await apiFetch(
+          `/api/v1/repositories/${apiSlug}/pulls/${number}/comments`,
+          { method: "POST", body: JSON.stringify({ body, filePath, lineNumber }) }
+        );
+        return true;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return false;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [repoSlug]
+  );
+
+  // ── Edit inline comment ───────────────────────────────────────────────────
+  const editInlineComment = useCallback(
+    async (number: number, commentId: string, body: string): Promise<boolean> => {
+      return editComment(number, commentId, body);
+    },
+    [editComment]
+  );
+
+  // ── Delete inline comment ─────────────────────────────────────────────────
+  const deleteInlineComment = useCallback(
+    async (number: number, commentId: string): Promise<boolean> => {
+      return deleteComment(number, commentId);
+    },
+    [deleteComment]
+  );
+
+  // ── Resolve inline thread ─────────────────────────────────────────────────
+  const resolveInlineThread = useCallback(
+    async (number: number, filePath: string, lineNumber: number): Promise<boolean> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        await apiFetch(
+          `/api/v1/repositories/${apiSlug}/pulls/${number}/inline-comments/resolve`,
+          { method: "POST", body: JSON.stringify({ filePath, lineNumber }) }
+        );
+        return true;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return false;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [repoSlug]
+  );
+
   // ── Fetch diff ────────────────────────────────────────────────────────────
   const fetchDiff = useCallback(
     async (number: number): Promise<PRDiff | null> => {
@@ -385,6 +465,11 @@ export function usePullRequests(repoSlug: string) {
     addComment,
     editComment,
     deleteComment,
+    fetchInlineComments,
+    addInlineComment,
+    editInlineComment,
+    deleteInlineComment,
+    resolveInlineThread,
     triggerAIReview,
     setActionError,
   };
