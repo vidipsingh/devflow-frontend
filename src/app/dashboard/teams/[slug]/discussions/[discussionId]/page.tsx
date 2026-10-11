@@ -12,8 +12,12 @@ import {
   resolveDiscussion,
   deleteDiscussion,
   getMyMembership,
+  reactToDiscussion,
+  reactToReply,
   TeamDiscussion,
   TeamDiscussionReply,
+  DiscussionReactions,
+  DiscussionReactionKey,
 } from "@/hooks/useTeams";
 import { useRouter } from "next/navigation";
 import { useDiscussionSocket, DiscussionSocketEvent } from "@/hooks/useDiscussionSocket";
@@ -68,6 +72,123 @@ function IconCheck() {
     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
       <polyline points="20 6 9 17 4 12" />
     </svg>
+  );
+}
+
+const REACTION_EMOJIS: { key: DiscussionReactionKey; emoji: string; label: string }[] = [
+  { key: "thumbsUp", emoji: "👍", label: "Thumbs up" },
+  { key: "heart",    emoji: "❤️", label: "Heart" },
+  { key: "hooray",   emoji: "🎉", label: "Hooray" },
+  { key: "rocket",   emoji: "🚀", label: "Rocket" },
+  { key: "eyes",     emoji: "👀", label: "Eyes" },
+  { key: "laugh",    emoji: "😄", label: "Laugh" },
+];
+
+// ─── Reaction Bar with popover picker ────────────────────────────────────────
+// Shows only non-zero pills inline. A single "😊 +" button opens a floating
+// picker with all 6 emojis. Clicking a reaction toggles it (server dedup).
+
+function ReactionBar({
+  reactions,
+  myReactions,
+  onReact,
+  disabled,
+}: {
+  reactions: DiscussionReactions;
+  myReactions: Set<DiscussionReactionKey>;
+  onReact: (key: DiscussionReactionKey) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pendingKey, setPendingKey] = useState<DiscussionReactionKey | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Close popover on outside click
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  async function handleReact(key: DiscussionReactionKey) {
+    if (pendingKey) return;
+    setOpen(false);
+    setPendingKey(key);
+    try {
+      await onReact(key);
+    } finally {
+      setPendingKey(null);
+    }
+  }
+
+  const nonZeroEntries = REACTION_EMOJIS.filter(({ key }) => reactions[key] > 0);
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 mt-2 relative">
+      {/* Existing reaction pills (non-zero counts) */}
+      {nonZeroEntries.map(({ key, emoji, label }) => {
+        const count = reactions[key];
+        const mine = myReactions.has(key);
+        const isPending = pendingKey === key;
+        return (
+          <button
+            key={key}
+            onClick={() => handleReact(key)}
+            disabled={disabled || !!pendingKey}
+            title={mine ? `Remove ${label}` : label}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-all cursor-pointer select-none ${
+              mine
+                ? "bg-violet-500/25 border-violet-500/50 text-violet-200 hover:bg-violet-500/15 hover:border-violet-500/30"
+                : "bg-white/[0.05] border-white/[0.10] text-white/70 hover:bg-violet-500/10 hover:border-violet-500/25 hover:text-violet-300"
+            } disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            <span className="text-sm leading-none">{emoji}</span>
+            <span className={`tabular-nums ${isPending ? "opacity-50" : ""}`}>{count}</span>
+          </button>
+        );
+      })}
+
+      {/* Add-reaction trigger button */}
+      {!disabled && (
+        <div ref={popoverRef} className="relative">
+          <button
+            onClick={() => setOpen(v => !v)}
+            title="Add reaction"
+            className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs border border-dashed border-white/[0.12] text-white/30 hover:border-violet-500/40 hover:text-violet-400 hover:bg-violet-500/08 transition-all select-none"
+          >
+            <span className="text-sm leading-none">😊</span>
+            <span className="font-medium leading-none">+</span>
+          </button>
+
+          {/* Popover picker */}
+          {open && (
+            <div className="absolute bottom-full left-0 mb-2 z-30 bg-[#16161f] border border-white/[0.10] rounded-2xl shadow-2xl p-2 flex gap-1">
+              {REACTION_EMOJIS.map(({ key, emoji, label }) => {
+                const mine = myReactions.has(key);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleReact(key)}
+                    disabled={!!pendingKey}
+                    title={label}
+                    className={`flex flex-col items-center gap-0.5 p-2 rounded-xl text-xs transition-all hover:bg-white/[0.08] ${
+                      mine ? "bg-violet-500/20 ring-1 ring-violet-500/40" : ""
+                    } disabled:opacity-50`}
+                  >
+                    <span className="text-xl leading-none">{emoji}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -181,6 +302,9 @@ export default function DiscussionDetailPage({ params }: PageProps) {
   const [sending, setSending]       = useState(false);
   const [showEdit, setShowEdit]     = useState(false);
   const [err, setErr]               = useState<string | null>(null);
+  // Per-user reaction tracking (client-side optimistic; keys the current user has toggled on)
+  const [myDiscussionReactions, setMyDiscussionReactions] = useState<Set<DiscussionReactionKey>>(new Set());
+  const [myReplyReactions, setMyReplyReactions] = useState<Map<string, Set<DiscussionReactionKey>>>(new Map());
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -305,6 +429,96 @@ export default function DiscussionDetailPage({ params }: PageProps) {
     setDiscussion(updated);
   }
 
+  async function handleReactToDiscussion(key: DiscussionReactionKey) {
+    if (!discussion) return;
+    // Optimistic: determine if currently reacted
+    const wasAdded = myDiscussionReactions.has(key);
+    const delta = wasAdded ? -1 : 1;
+    // Optimistic UI update
+    setDiscussion(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        reactions: { ...prev.reactions, [key]: Math.max(0, (prev.reactions?.[key] ?? 0) + delta) },
+      };
+    });
+    setMyDiscussionReactions(prev => {
+      const next = new Set(prev);
+      wasAdded ? next.delete(key) : next.add(key);
+      return next;
+    });
+    try {
+      const added = await reactToDiscussion(slug, discussion.id, key);
+      // Reconcile with server truth
+      setMyDiscussionReactions(prev => {
+        const next = new Set(prev);
+        added ? next.add(key) : next.delete(key);
+        return next;
+      });
+    } catch {
+      // Rollback optimistic changes
+      setDiscussion(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          reactions: { ...prev.reactions, [key]: Math.max(0, (prev.reactions?.[key] ?? 0) - delta) },
+        };
+      });
+      setMyDiscussionReactions(prev => {
+        const next = new Set(prev);
+        wasAdded ? next.add(key) : next.delete(key);
+        return next;
+      });
+    }
+  }
+
+  async function handleReactToReply(replyId: string, key: DiscussionReactionKey) {
+    const replySet = myReplyReactions.get(replyId) ?? new Set<DiscussionReactionKey>();
+    const wasAdded = replySet.has(key);
+    const delta = wasAdded ? -1 : 1;
+    // Optimistic update
+    setReplies(prev =>
+      prev.map(r =>
+        r.id === replyId
+          ? { ...r, reactions: { ...r.reactions, [key]: Math.max(0, (r.reactions?.[key] ?? 0) + delta) } }
+          : r
+      )
+    );
+    setMyReplyReactions(prev => {
+      const next = new Map(prev);
+      const s = new Set(next.get(replyId) ?? []);
+      wasAdded ? s.delete(key) : s.add(key);
+      next.set(replyId, s);
+      return next;
+    });
+    try {
+      const added = await reactToReply(slug, discussionId, replyId, key);
+      setMyReplyReactions(prev => {
+        const next = new Map(prev);
+        const s = new Set(next.get(replyId) ?? []);
+        added ? s.add(key) : s.delete(key);
+        next.set(replyId, s);
+        return next;
+      });
+    } catch {
+      // Rollback
+      setReplies(prev =>
+        prev.map(r =>
+          r.id === replyId
+            ? { ...r, reactions: { ...r.reactions, [key]: Math.max(0, (r.reactions?.[key] ?? 0) - delta) } }
+            : r
+        )
+      );
+      setMyReplyReactions(prev => {
+        const next = new Map(prev);
+        const s = new Set(next.get(replyId) ?? []);
+        wasAdded ? s.add(key) : s.delete(key);
+        next.set(replyId, s);
+        return next;
+      });
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#080810] text-white flex items-center justify-center">
@@ -371,6 +585,13 @@ export default function DiscussionDetailPage({ params }: PageProps) {
                 <span className="text-white/15">·</span>
                 <span className="text-xs text-white/30">{discussion.replyCount} {discussion.replyCount === 1 ? "reply" : "replies"}</span>
               </div>
+              {/* Reaction bar — discussion thread */}
+              <ReactionBar
+                reactions={discussion.reactions ?? { thumbsUp: 0, heart: 0, hooray: 0, rocket: 0, eyes: 0, laugh: 0 }}
+                myReactions={myDiscussionReactions}
+                onReact={handleReactToDiscussion}
+                disabled={!myRole}
+              />
             </div>
 
             {/* Author/admin actions */}
@@ -420,6 +641,13 @@ export default function DiscussionDetailPage({ params }: PageProps) {
                     }`}>
                       {r.body}
                     </div>
+                    {/* Reaction bar — reply */}
+                    <ReactionBar
+                      reactions={r.reactions ?? { thumbsUp: 0, heart: 0, hooray: 0, rocket: 0, eyes: 0, laugh: 0 }}
+                      myReactions={myReplyReactions.get(r.id) ?? new Set()}
+                      onReact={(key) => handleReactToReply(r.id, key)}
+                      disabled={!myRole}
+                    />
                   </div>
                   {/* Delete reply */}
                   {canDelete && (

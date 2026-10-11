@@ -454,6 +454,17 @@ export async function createSubTeam(parentSlug: string, payload: CreateSubTeamPa
 
 // ─── Phase 3: Discussions ─────────────────────────────────────────────────────
 
+export interface DiscussionReactions {
+  thumbsUp: number;
+  heart: number;
+  hooray: number;
+  rocket: number;
+  eyes: number;
+  laugh: number;
+}
+
+export type DiscussionReactionKey = keyof DiscussionReactions;
+
 export interface TeamDiscussion {
   id: string;
   teamId: string;
@@ -465,6 +476,7 @@ export interface TeamDiscussion {
   pinned: boolean;
   resolved: boolean;
   replyCount: number;
+  reactions: DiscussionReactions;
   createdAt: string;
   updatedAt: string;
 }
@@ -477,6 +489,7 @@ export interface TeamDiscussionReply {
   authorName: string;
   authorAvatar: string;
   body: string;
+  reactions: DiscussionReactions;
   createdAt: string;
   updatedAt: string;
 }
@@ -521,4 +534,34 @@ export async function addReply(slug: string, discussionId: string, body: string)
 
 export async function deleteReply(slug: string, discussionId: string, replyId: string): Promise<void> {
   await apiDelete(`/api/v1/teams/${slug}/discussions/${discussionId}/replies/${replyId}`);
+}
+
+/** Toggle a reaction on the discussion thread itself.
+ *  The server decides add vs remove (one-per-person).
+ *  Returns true if the reaction was added, false if it was removed. */
+export async function reactToDiscussion(
+  slug: string,
+  discussionId: string,
+  reaction: DiscussionReactionKey,
+): Promise<boolean> {
+  const res = await apiFetch<{ add: boolean }>(`/api/v1/teams/${slug}/discussions/${discussionId}/react`, {
+    method: "POST",
+    body: JSON.stringify({ reaction }),
+  });
+  return res.add;
+}
+
+/** Toggle a reaction on a specific reply.
+ *  Returns true if the reaction was added, false if it was removed. */
+export async function reactToReply(
+  slug: string,
+  discussionId: string,
+  replyId: string,
+  reaction: DiscussionReactionKey,
+): Promise<boolean> {
+  const res = await apiFetch<{ add: boolean }>(`/api/v1/teams/${slug}/discussions/${discussionId}/replies/${replyId}/react`, {
+    method: "POST",
+    body: JSON.stringify({ reaction }),
+  });
+  return res.add;
 }
