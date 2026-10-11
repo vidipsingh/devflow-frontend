@@ -46,6 +46,20 @@ function fmtMins(m: number): string {
   return `${(m / 60).toFixed(1)}h`;
 }
 
+// ─── Fill missing months with zeros so BarChart always renders ───────────────
+function fillMonths(series: MonthlySeries[], months = 12): MonthlySeries[] {
+  const map: Record<string, number> = {};
+  series.forEach((s) => { map[s.month] = s.count; });
+  const result: MonthlySeries[] = [];
+  const now = new Date();
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    result.push({ month: key, count: map[key] ?? 0 });
+  }
+  return result;
+}
+
 // ─── Accent colour map ────────────────────────────────────────────────────────
 
 type Accent = "violet" | "emerald" | "amber" | "cyan" | "rose" | "blue" | "pink" | "indigo" | "sky";
@@ -862,15 +876,6 @@ export default function AnalyticsPage() {
             <Section title="Contribution Activity" subtitle="Daily commit history — last 365 days">
               <Heatmap data={data.activity} />
             </Section>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Section title="Monthly Commits" subtitle="Commit activity over the last 12 months">
-                <BarChart series={data.monthlyCommits} color="#7c3aed" valueLabel=" commits" height={112} />
-              </Section>
-              <Section title="Monthly Sales" subtitle="Marketplace sales count — last 12 months">
-                <BarChart series={data.monthlyRevenue} color="#10b981" valueLabel=" sales" height={112} />
-              </Section>
-            </div>
           </div>
         )}
 
@@ -892,10 +897,6 @@ export default function AnalyticsPage() {
 
             <Section title="Language Breakdown" subtitle="Based on repository language tags">
               <LanguageBreakdown data={data.languages} />
-            </Section>
-
-            <Section title="Commit History" subtitle="Monthly commit count — last 12 months">
-              <BarChart series={data.monthlyCommits} color="#7c3aed" valueLabel=" commits" height={128} />
             </Section>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -974,10 +975,6 @@ export default function AnalyticsPage() {
                 <p className="text-xs text-white/25">Across all snippets</p>
               </div>
             </div>
-
-            <Section title="Monthly Sales Volume" subtitle="Number of sales per month — last 12 months">
-              <BarChart series={data.monthlyRevenue} color="#10b981" valueLabel=" sales" height={128} />
-            </Section>
 
             <Section title="Snippet Performance" subtitle="Sorted by downloads">
               <SnippetTable data={data.snippetPerformance} />
