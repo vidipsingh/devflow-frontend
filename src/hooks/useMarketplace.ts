@@ -78,6 +78,72 @@ export interface PurchaseOrderResponse {
   keyId: string;
 }
 
+// ─── Search types ─────────────────────────────────────────────────────────────
+
+export interface SnippetSearchParams {
+  q?: string;
+  language?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sort?: "popular" | "recent" | "price_asc" | "price_desc" | "rating";
+  page?: number;
+  limit?: number;
+}
+
+export interface SnippetSearchResult {
+  snippets: Snippet[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+// ─── Search hook ──────────────────────────────────────────────────────────────
+
+export function useMarketplaceSearch(params: SnippetSearchParams = {}) {
+  const [result, setResult] = useState<SnippetSearchResult>({
+    snippets: [],
+    total: 0,
+    page: 1,
+    totalPages: 1,
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const search = useCallback(async (p: SnippetSearchParams = {}) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const qs = new URLSearchParams();
+      if (p.q)        qs.set("q",        p.q);
+      if (p.language) qs.set("language", p.language);
+      if (p.minPrice !== undefined && p.minPrice > 0) qs.set("minPrice", String(p.minPrice));
+      if (p.maxPrice !== undefined && p.maxPrice > 0) qs.set("maxPrice", String(p.maxPrice));
+      if (p.sort)     qs.set("sort",     p.sort);
+      if (p.page)     qs.set("page",     String(p.page));
+      if (p.limit)    qs.set("limit",    String(p.limit));
+
+      const res = await apiFetch<{
+        success: boolean;
+        data: SnippetSearchResult;
+      }>(`/api/v1/marketplace/search?${qs.toString()}`);
+      setResult(res.data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Search failed");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Run on mount / when params change (stringified for stable dependency)
+  const paramsKey = JSON.stringify(params);
+  useEffect(() => {
+    search(params);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey]);
+
+  return { ...result, isLoading, error, search };
+}
+
 // ─── Browse hook ──────────────────────────────────────────────────────────────
 
 export function useMarketplaceBrowse(sort = "downloads", limit = 20) {
