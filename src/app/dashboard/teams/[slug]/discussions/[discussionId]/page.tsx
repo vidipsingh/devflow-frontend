@@ -12,6 +12,7 @@ import {
   resolveDiscussion,
   deleteDiscussion,
   getMyMembership,
+  getMyReactions,
   reactToDiscussion,
   reactToReply,
   TeamDiscussion,
@@ -311,14 +312,24 @@ export default function DiscussionDetailPage({ params }: PageProps) {
   async function load() {
     setLoading(true);
     try {
-      const [membership, { discussion: d, replies: r }] = await Promise.all([
+      const [membership, { discussion: d, replies: r }, myRxns] = await Promise.all([
         getMyMembership(slug),
         getDiscussion(slug, discussionId),
+        getMyReactions(slug, discussionId).catch(() => ({ discussionReactions: [], replyReactions: {} })),
       ]);
       setMyRole(membership?.role ?? null);
       setMyUsername(membership?.username ?? null);
       setDiscussion(d);
       setReplies(r ?? []);
+      // Hydrate which reactions the current user has already given
+      setMyDiscussionReactions(
+        new Set((myRxns.discussionReactions ?? []) as DiscussionReactionKey[])
+      );
+      const replyMap = new Map<string, Set<DiscussionReactionKey>>();
+      for (const [replyId, keys] of Object.entries(myRxns.replyReactions ?? {})) {
+        replyMap.set(replyId, new Set(keys as DiscussionReactionKey[]));
+      }
+      setMyReplyReactions(replyMap);
     } catch {
       setErr("Failed to load discussion");
     } finally {

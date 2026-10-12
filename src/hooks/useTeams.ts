@@ -536,6 +536,17 @@ export async function deleteReply(slug: string, discussionId: string, replyId: s
   await apiDelete(`/api/v1/teams/${slug}/discussions/${discussionId}/replies/${replyId}`);
 }
 
+/** Fetch which reactions the current user has already given on a discussion + its replies. */
+export async function getMyReactions(
+  slug: string,
+  discussionId: string,
+): Promise<{ discussionReactions: string[]; replyReactions: Record<string, string[]> }> {
+  const res = await apiFetch<ApiResponse<{ discussionReactions: string[]; replyReactions: Record<string, string[]> }>>(
+    `/api/v1/teams/${slug}/discussions/${discussionId}/my-reactions`
+  );
+  return res.data ?? { discussionReactions: [], replyReactions: {} };
+}
+
 /** Toggle a reaction on the discussion thread itself.
  *  The server decides add vs remove (one-per-person).
  *  Returns true if the reaction was added, false if it was removed. */
