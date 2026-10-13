@@ -15,7 +15,7 @@ interface Issue {
   id: string;
   number: number;
   repoSlug: string;
-  repoFullName?: string;  // owner/repo — used for navigation
+  repoFullName?: string;  // owner~repo from backend — convert ~ → / for hrefs
   title: string;
   state: "open" | "closed";
   authorName: string;
@@ -32,6 +32,12 @@ interface Repo {
   name: string;
   slug: string;
   fullName?: string;
+}
+
+/** Convert backend slug (owner~repo or bare-name) to URL path (owner/repo) */
+function slugToPath(slug: string | undefined): string {
+  if (!slug) return "";
+  return slug.replace(/~/g, "/");
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -63,6 +69,12 @@ function LabelPill({ label }: { label: IssueLabel }) {
 
 // ─── Issue row ────────────────────────────────────────────────────────────────
 function IssueRow({ issue }: { issue: Issue }) {
+  // Backend returns repoFullName as "owner~repo"; convert to "owner/repo" for URLs
+  const repoPath = slugToPath(issue.repoFullName ?? issue.repoSlug);
+  const repoDisplay = issue.repoFullName
+    ? issue.repoFullName.replace(/~/g, "/")
+    : issue.repoSlug;
+
   return (
     <div className="flex items-start gap-3 px-4 py-3.5 hover:bg-white/[0.02] transition-colors border-b border-white/[0.06] last:border-0">
       <div className="mt-0.5 shrink-0">
@@ -79,7 +91,7 @@ function IssueRow({ issue }: { issue: Issue }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2 flex-wrap">
           <Link
-            href={`/dashboard/repositories/${issue.repoFullName ?? issue.repoSlug}/issues/${issue.number}`}
+            href={`/dashboard/repositories/${repoPath}/issues/${issue.number}`}
             className="text-sm font-medium text-white/90 hover:text-indigo-300 transition-colors leading-snug"
           >
             {issue.title}
@@ -94,10 +106,10 @@ function IssueRow({ issue }: { issue: Issue }) {
         </div>
         <p className="text-white/35 text-xs mt-1">
           <Link
-            href={`/dashboard/repositories/${issue.repoFullName ?? issue.repoSlug}`}
+            href={`/dashboard/repositories/${repoPath}`}
             className="text-indigo-400/70 hover:text-indigo-300 transition-colors mr-1"
           >
-            {issue.repoFullName ?? issue.repoSlug}
+            {repoDisplay}
           </Link>
           #{issue.number} · opened {timeAgo(issue.createdAt)} by{" "}
           <span className="text-white/50">{issue.authorName}</span>
@@ -123,6 +135,8 @@ export default function GlobalIssuesPage() {
   const [reposLoaded, setReposLoaded] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState<string>("all");
   const [tab, setTab] = useState<"open" | "closed">("open");
+  const [activeLabel, setActiveLabel] = useState("");
+  const [allLabels, setAllLabels] = useState<IssueLabel[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -130,13 +144,37 @@ export default function GlobalIssuesPage() {
   const [error, setError] = useState<string | null>(null);
   const LIMIT = 20;
 
-  // Fetch all repos once — used only for the filter dropdown
+  // Persistent counts shown in BOTH tab buttons regardless of which tab is active
+  const [openCount, setOpenCount] = useState<number | null>(null);
+  const [closedCount, setClosedCount] = useState<number | null>(null);
+
+  // Fetch all repos once — used for the repo filter dropdown
   useEffect(() => {
     apiFetch<{ success: boolean; data: { repositories: Repo[] } }>("/api/v1/repositories")
-      .then((json) => { if (json.success) setRepos(json.data?.repositories ?? []); })
+      .then((json) => {
+        if (json.success) setRepos(json.data?.repositories ?? []);
+      })
       .catch(() => {/* ignore */})
       .finally(() => setReposLoaded(true));
   }, []);
+
+  // Fetch counts for BOTH states in parallel so tab bar always shows numbers
+  const fetchCounts = useCallback(async () => {
+    const repoSlug = selectedRepo === "all" ? "" : selectedRepo;
+    const base = repoSlug ? `&repo=${encodeURIComponent(repoSlug)}` : "";
+    try {
+      const [openJson, closedJson] = await Promise.all([
+        apiFetch<{ success: boolean; data: { total: number } }>(`/api/v1/issues?state=open&page=1&limit=1${base}`),
+        apiFetch<{ success: boolean; data: { total: number } }>(`/api/v1/issues?state=closed&page=1&limit=1${base}`),
+      ]);
+      if (openJson.success) setOpenCount(openJson.data?.total ?? 0);
+      if (closedJson.success) setClosedCount(closedJson.data?.total ?? 0);
+    } catch {/* ignore count errors */}
+  }, [selectedRepo]);
+
+  useEffect(() => {
+    if (reposLoaded) fetchCounts();
+  }, [fetchCounts, reposLoaded]);
 
   const fetchIssues = useCallback(async () => {
     setLoading(true);
@@ -149,19 +187,36 @@ export default function GlobalIssuesPage() {
         page: String(page),
         limit: String(LIMIT),
         ...(repoSlug ? { repo: repoSlug } : {}),
+        ...(activeLabel ? { label: activeLabel } : {}),
       });
       const json = await apiFetch<{ success: boolean; data: { issues: Issue[]; total: number } }>(
         `/api/v1/issues?${params}`
       );
       if (!json.success) throw new Error("Failed to fetch issues");
-      setIssues(json.data?.issues ?? []);
-      setTotal(json.data?.total ?? 0);
+      const fetchedIssues = json.data?.issues ?? [];
+      setIssues(fetchedIssues);
+      const fetchedTotal = json.data?.total ?? 0;
+      setTotal(fetchedTotal);
+      // Keep persistent counts in sync with latest fetch
+      if (tab === "open") setOpenCount(fetchedTotal);
+      if (tab === "closed") setClosedCount(fetchedTotal);
+      // Collect unique labels from the fetched issues for the filter dropdown
+      setAllLabels((prev) => {
+        const seen = new Set(prev.map((l) => l.name));
+        const merged = [...prev];
+        fetchedIssues.forEach((issue) => {
+          (issue.labels ?? []).forEach((l) => {
+            if (!seen.has(l.name)) { seen.add(l.name); merged.push(l); }
+          });
+        });
+        return merged;
+      });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to fetch issues");
     } finally {
       setLoading(false);
     }
-  }, [selectedRepo, tab, page]);
+  }, [selectedRepo, tab, page, activeLabel]);
 
   useEffect(() => {
     if (reposLoaded) fetchIssues();
@@ -199,11 +254,50 @@ export default function GlobalIssuesPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
+
+          {/* Label dropdown — always visible; options populate after repos load */}
+          <div className="relative flex items-center gap-2">
+            <svg className="w-3.5 h-3.5 text-white/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            <div className="relative">
+              <select
+                value={activeLabel}
+                onChange={(e) => { setActiveLabel(e.target.value); setPage(1); }}
+                className="bg-[#0d0d14] border border-white/[0.08] rounded-xl pl-3 pr-8 py-2 text-sm text-white/70 appearance-none focus:outline-none focus:border-indigo-400/40 transition-colors cursor-pointer"
+              >
+                <option value="">All labels</option>
+                {allLabels.map((l) => (
+                  <option key={l.name} value={l.name}>{l.name}</option>
+                ))}
+              </select>
+              <svg className="w-3.5 h-3.5 text-white/30 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Active label chip */}
+          {activeLabel && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-xs font-medium">
+              <svg className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+              {activeLabel}
+              <button
+                onClick={() => { setActiveLabel(""); setPage(1); }}
+                className="ml-0.5 text-indigo-300/60 hover:text-indigo-200 transition-colors leading-none cursor-pointer"
+                aria-label="Clear label filter"
+              >
+                ×
+              </button>
+            </span>
+          )}
         </div>
 
         {/* ── Issues list ────────────────────────────────────────────────── */}
         <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0d14]">
-          {/* Tab bar */}
+          {/* Tab bar — counts always visible for both tabs */}
           <div className="flex items-center gap-1 px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
             <button
               onClick={() => { setTab("open"); setPage(1); }}
@@ -214,7 +308,7 @@ export default function GlobalIssuesPage() {
               <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {tab === "open" ? `${total} Open` : "Open"}
+              {openCount !== null ? `${openCount} Open` : "Open"}
             </button>
             <button
               onClick={() => { setTab("closed"); setPage(1); }}
@@ -225,7 +319,7 @@ export default function GlobalIssuesPage() {
               <svg className="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {tab === "closed" ? `${total} Closed` : "Closed"}
+              {closedCount !== null ? `${closedCount} Closed` : "Closed"}
             </button>
           </div>
 

@@ -3,7 +3,7 @@
 
 import { use, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useIssues, Issue, IssueComment, IssueLabel, IssueReactions } from "@/hooks/useIssues";
+import { useIssues, Issue, IssueComment, IssueLabel, IssueReactions, RepoLabel } from "@/hooks/useIssues";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string) {
@@ -380,6 +380,7 @@ export default function IssueDetailPage({
     editComment,
     deleteComment,
     reactToIssue,
+    fetchRepoLabels,
     actionLoading,
     actionError,
     setActionError,
@@ -481,6 +482,32 @@ export default function IssueDetailPage({
   };
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // ── Label editor state ────────────────────────────────────────────────────
+  const [repoLabels, setRepoLabels] = useState<RepoLabel[]>([]);
+  const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    fetchRepoLabels().then((labels) => { if (labels) setRepoLabels(labels); });
+  }, [fetchRepoLabels]);
+
+  const handleAddLabel = useCallback(async (l: RepoLabel) => {
+    if (!issue) return;
+    const current = issue.labels ?? [];
+    if (current.some((x) => x.name === l.name)) return;
+    const updated = await updateIssue(issueNumber, {
+      labels: [...current, { name: l.name, color: l.color }],
+    });
+    if (updated) setIssue(updated);
+  }, [issue, issueNumber, updateIssue]);
+
+  const handleRemoveLabel = useCallback(async (labelName: string) => {
+    if (!issue) return;
+    const updated = await updateIssue(issueNumber, {
+      labels: (issue.labels ?? []).filter((l) => l.name !== labelName),
+    });
+    if (updated) setIssue(updated);
+  }, [issue, issueNumber, updateIssue]);
 
   const handleDelete = async () => {
     const ok = await deleteIssue(issueNumber);
@@ -821,6 +848,98 @@ export default function IssueDetailPage({
                 )}
               </div>
             )}
+
+            {/* ── Labels editor ─────────────────────────────────────────── */}
+            <div className="border border-white/[0.08] rounded-xl p-4 bg-[#0d0d14] space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-white/35 text-xs font-semibold uppercase tracking-wider">Labels</p>
+                {isAuthor && (
+                  <button
+                    onClick={() => setLabelDropdownOpen((p) => !p)}
+                    className="cursor-pointer text-white/30 hover:text-white/60 transition-colors"
+                    title="Add label"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {/* Current labels */}
+              {(issue.labels ?? []).length === 0 && !labelDropdownOpen && (
+                <p className="text-white/20 text-xs italic">None yet</p>
+              )}
+              <div className="flex flex-wrap gap-1.5">
+                {(issue.labels ?? []).map((l) => {
+                  const bg = l.color
+                    ? l.color.startsWith("#") ? l.color : "#" + l.color
+                    : "#6366f1";
+                  return (
+                    <span
+                      key={l.name}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium group"
+                      style={{ backgroundColor: bg + "33", color: bg, border: `1px solid ${bg}55` }}
+                    >
+                      {l.name}
+                      {isAuthor && (
+                        <button
+                          onClick={() => handleRemoveLabel(l.name)}
+                          disabled={actionLoading}
+                          className="cursor-pointer ml-0.5 opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30 leading-none"
+                          title={`Remove "${l.name}"`}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+
+              {/* Add-label dropdown */}
+              {isAuthor && labelDropdownOpen && (
+                <div className="mt-1 border border-white/[0.10] rounded-lg bg-[#12121a] overflow-hidden">
+                  {repoLabels.length === 0 ? (
+                    <p className="text-white/25 text-xs px-3 py-2 italic">No labels defined for this repo</p>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto divide-y divide-white/[0.05]">
+                      {repoLabels.map((rl) => {
+                        const bg = rl.color
+                          ? rl.color.startsWith("#") ? rl.color : "#" + rl.color
+                          : "#6366f1";
+                        const alreadyApplied = (issue.labels ?? []).some((l) => l.name === rl.name);
+                        return (
+                          <button
+                            key={rl.id}
+                            onClick={() => { handleAddLabel(rl); setLabelDropdownOpen(false); }}
+                            disabled={alreadyApplied || actionLoading}
+                            className="cursor-pointer w-full flex items-center gap-2 px-3 py-2 hover:bg-white/[0.04] transition-colors disabled:opacity-40 text-left"
+                          >
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: bg }}
+                            />
+                            <span className="text-xs text-white/70 flex-1 truncate">{rl.name}</span>
+                            {alreadyApplied && (
+                              <svg className="w-3 h-3 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setLabelDropdownOpen(false)}
+                    className="cursor-pointer w-full text-center text-xs text-white/25 hover:text-white/50 py-1.5 border-t border-white/[0.06] transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Issue info */}
             <div className="border border-white/[0.08] rounded-xl p-4 bg-[#0d0d14] space-y-3">

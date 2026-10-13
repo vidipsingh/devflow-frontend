@@ -3,7 +3,7 @@
 
 import { use, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useIssues, Issue, IssueLabel } from "@/hooks/useIssues";
+import { useIssues, Issue, IssueLabel, RepoLabel } from "@/hooks/useIssues";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string) {
@@ -107,20 +107,27 @@ function IssueRow({ issue, repoName }: { issue: Issue; repoName: string }) {
 export default function IssuesPage({ params }: { params: Promise<{ owner: string; repo: string }> }) {
   const { owner, repo } = use(params);
   const name = `${owner}/${repo}`;
-  const { issues, total, loading, error, fetchIssues } = useIssues(name);
+  const { issues, total, loading, error, fetchIssues, fetchRepoLabels } = useIssues(name);
 
   const [tab, setTab] = useState<"open" | "closed">("open");
   const [page, setPage] = useState(1);
+  const [activeLabel, setActiveLabel] = useState("");
+  const [repoLabels, setRepoLabels] = useState<RepoLabel[]>([]);
   const LIMIT = 20;
 
+  // Load repo labels once on mount
+  useEffect(() => {
+    fetchRepoLabels().then((labels) => { if (labels) setRepoLabels(labels); });
+  }, [fetchRepoLabels]);
+
   const load = useCallback(
-    (state: "open" | "closed", p: number) => fetchIssues(state, p, LIMIT),
+    (state: "open" | "closed", p: number, lbl: string) => fetchIssues(state, p, LIMIT, lbl),
     [fetchIssues]
   );
 
   useEffect(() => {
-    load(tab, page);
-  }, [tab, page, load]);
+    load(tab, page, activeLabel);
+  }, [tab, page, activeLabel, load]);
 
   const openCount = tab === "open" ? total : null;
   const closedCount = tab === "closed" ? total : null;
@@ -157,6 +164,51 @@ export default function IssuesPage({ params }: { params: Promise<{ owner: string
           </Link>
         </div>
 
+        {/* ── Label filter chips ─────────────────────────────────────────── */}
+        {repoLabels.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-white/30 text-xs font-medium">Filter by label:</span>
+            <button
+              onClick={() => { setActiveLabel(""); setPage(1); }}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+                activeLabel === ""
+                  ? "bg-indigo-500/20 border-indigo-400/40 text-indigo-300"
+                  : "bg-white/[0.04] border-white/[0.10] text-white/50 hover:bg-white/[0.07] hover:text-white/70"
+              }`}
+            >
+              All
+            </button>
+            {repoLabels.map((l) => {
+              const bg = l.color ? `#${l.color.replace("#", "")}` : "#6366f1";
+              const isActive = activeLabel === l.name;
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => { setActiveLabel(isActive ? "" : l.name); setPage(1); }}
+                  title={l.description || l.name}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer ${
+                    isActive ? "ring-2 ring-offset-1 ring-offset-[#0a0a0f]" : "hover:opacity-90"
+                  }`}
+                  style={{
+                    backgroundColor: bg + "22",
+                    color: bg,
+                    borderColor: bg + "55",
+                    ...(isActive ? { ringColor: bg } : {}),
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: bg }} />
+                  {l.name}
+                  {isActive && (
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* ── Filter bar ─────────────────────────────────────────────────── */}
         <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0d14]">
           <div className="flex items-center gap-1 px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
@@ -188,6 +240,11 @@ export default function IssuesPage({ params }: { params: Promise<{ owner: string
               </svg>
               {tab === "closed" && closedCount !== null ? `${closedCount} Closed` : "Closed"}
             </button>
+            {activeLabel && (
+              <span className="ml-auto text-xs text-white/30 italic">
+                Filtered by: <span className="text-white/60 not-italic font-medium">{activeLabel}</span>
+              </span>
+            )}
           </div>
 
           {/* ── Issue list ────────────────────────────────────────── */}

@@ -11,6 +11,17 @@ export interface IssueLabel {
   color: string;
 }
 
+export interface RepoLabel {
+  id: string;
+  repoId: string;
+  repoSlug: string;
+  name: string;
+  color: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface IssueReactions {
   thumbsUp: number;
   thumbsDown: number;
@@ -78,12 +89,13 @@ export function useIssues(repoSlug: string) {
 
   // ── List issues ──────────────────────────────────────────────────────────
   const fetchIssues = useCallback(
-    async (state: "open" | "closed" | "" = "open", page = 1, limit = 20) => {
+    async (state: "open" | "closed" | "" = "open", page = 1, limit = 20, label = "") => {
       setLoading(true);
       setError(null);
       try {
         const params = new URLSearchParams({ page: String(page), limit: String(limit) });
         if (state) params.set("state", state);
+        if (label) params.set("label", label);
         const json = await apiFetch<{ data: IssueListResult }>(
           `/api/v1/repositories/${apiSlug}/issues?${params}`
         );
@@ -160,7 +172,160 @@ export function useIssues(repoSlug: string) {
       setActionError(null);
       try {
         const json = await apiFetch<{ data: Issue }>(
-          `/api/v1/repositories/${repoSlug}/issues/${number}`,
+          `/api/v1/repositories/${apiSlug}/issues/${number}`,
+          { method: "PATCH", body: JSON.stringify(payload) }
+        );
+        return json.data;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return null;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [apiSlug]
+  );
+
+  // ── Delete issue ─────────────────────────────────────────────────────────
+  const deleteIssue = useCallback(
+    async (number: number): Promise<boolean> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        await apiFetch(`/api/v1/repositories/${apiSlug}/issues/${number}`, { method: "DELETE" });
+        return true;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return false;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [apiSlug]
+  );
+
+  // ── Add comment ──────────────────────────────────────────────────────────
+  const addComment = useCallback(
+    async (number: number, body: string): Promise<IssueComment | null> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        const json = await apiFetch<{ data: IssueComment }>(
+          `/api/v1/repositories/${apiSlug}/issues/${number}/comments`,
+          { method: "POST", body: JSON.stringify({ body }) }
+        );
+        return json.data;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return null;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [apiSlug]
+  );
+
+  // ── Edit comment ─────────────────────────────────────────────────────────
+  const editComment = useCallback(
+    async (number: number, commentId: string, body: string): Promise<boolean> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        await apiFetch(
+          `/api/v1/repositories/${apiSlug}/issues/${number}/comments/${commentId}`,
+          { method: "PATCH", body: JSON.stringify({ body }) }
+        );
+        return true;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return false;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [apiSlug]
+  );
+
+  // ── Delete comment ───────────────────────────────────────────────────────
+  const deleteComment = useCallback(
+    async (number: number, commentId: string): Promise<boolean> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        await apiFetch(
+          `/api/v1/repositories/${apiSlug}/issues/${number}/comments/${commentId}`,
+          { method: "DELETE" }
+        );
+        return true;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return false;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [apiSlug]
+  );
+
+  // ── React to issue ───────────────────────────────────────────────────────
+  const reactToIssue = useCallback(
+    async (
+      number: number,
+      reaction: "thumbsUp" | "thumbsDown" | "laugh" | "hooray" | "confused" | "heart" | "rocket" | "eyes",
+      add: boolean
+    ): Promise<IssueReactions | null> => {
+      try {
+        const json = await apiFetch<{ data: IssueReactions }>(
+          `/api/v1/repositories/${apiSlug}/issues/${number}/reactions`,
+          { method: "POST", body: JSON.stringify({ reaction, add }) }
+        );
+        return json.data;
+      } catch {
+        return null;
+      }
+    },
+    [apiSlug]
+  );
+
+  // ── Repo label CRUD ───────────────────────────────────────────────────────
+  const fetchRepoLabels = useCallback(async (): Promise<RepoLabel[]> => {
+    try {
+      const json = await apiFetch<{ data: { labels: RepoLabel[] } }>(
+        `/api/v1/repositories/${apiSlug}/labels`
+      );
+      return json.data.labels ?? [];
+    } catch {
+      return [];
+    }
+  }, [repoSlug]);
+
+  const createRepoLabel = useCallback(
+    async (payload: { name: string; color: string; description?: string }): Promise<RepoLabel | null> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        const json = await apiFetch<{ data: RepoLabel }>(
+          `/api/v1/repositories/${apiSlug}/labels`,
+          { method: "POST", body: JSON.stringify(payload) }
+        );
+        return json.data;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return null;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [repoSlug]
+  );
+
+  const updateRepoLabel = useCallback(
+    async (labelId: string, payload: { name?: string; color?: string; description?: string }): Promise<RepoLabel | null> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        const json = await apiFetch<{ data: RepoLabel }>(
+          `/api/v1/repositories/${apiSlug}/labels/${labelId}`,
           { method: "PATCH", body: JSON.stringify(payload) }
         );
         return json.data;
@@ -174,102 +339,18 @@ export function useIssues(repoSlug: string) {
     [repoSlug]
   );
 
-  // ── Delete issue ─────────────────────────────────────────────────────────
-  const deleteIssue = useCallback(
-    async (number: number): Promise<boolean> => {
+  const deleteRepoLabel = useCallback(
+    async (labelId: string): Promise<boolean> => {
       setActionLoading(true);
       setActionError(null);
       try {
-        await apiFetch(`/api/v1/repositories/${repoSlug}/issues/${number}`, { method: "DELETE" });
+        await apiFetch(`/api/v1/repositories/${apiSlug}/labels/${labelId}`, { method: "DELETE" });
         return true;
       } catch (e: unknown) {
         setActionError(e instanceof Error ? e.message : "Unknown error");
         return false;
       } finally {
         setActionLoading(false);
-      }
-    },
-    [repoSlug]
-  );
-
-  // ── Add comment ──────────────────────────────────────────────────────────
-  const addComment = useCallback(
-    async (number: number, body: string): Promise<IssueComment | null> => {
-      setActionLoading(true);
-      setActionError(null);
-      try {
-        const json = await apiFetch<{ data: IssueComment }>(
-          `/api/v1/repositories/${repoSlug}/issues/${number}/comments`,
-          { method: "POST", body: JSON.stringify({ body }) }
-        );
-        return json.data;
-      } catch (e: unknown) {
-        setActionError(e instanceof Error ? e.message : "Unknown error");
-        return null;
-      } finally {
-        setActionLoading(false);
-      }
-    },
-    [repoSlug]
-  );
-
-  // ── Edit comment ─────────────────────────────────────────────────────────
-  const editComment = useCallback(
-    async (number: number, commentId: string, body: string): Promise<boolean> => {
-      setActionLoading(true);
-      setActionError(null);
-      try {
-        await apiFetch(
-          `/api/v1/repositories/${repoSlug}/issues/${number}/comments/${commentId}`,
-          { method: "PATCH", body: JSON.stringify({ body }) }
-        );
-        return true;
-      } catch (e: unknown) {
-        setActionError(e instanceof Error ? e.message : "Unknown error");
-        return false;
-      } finally {
-        setActionLoading(false);
-      }
-    },
-    [repoSlug]
-  );
-
-  // ── Delete comment ───────────────────────────────────────────────────────
-  const deleteComment = useCallback(
-    async (number: number, commentId: string): Promise<boolean> => {
-      setActionLoading(true);
-      setActionError(null);
-      try {
-        await apiFetch(
-          `/api/v1/repositories/${repoSlug}/issues/${number}/comments/${commentId}`,
-          { method: "DELETE" }
-        );
-        return true;
-      } catch (e: unknown) {
-        setActionError(e instanceof Error ? e.message : "Unknown error");
-        return false;
-      } finally {
-        setActionLoading(false);
-      }
-    },
-    [repoSlug]
-  );
-
-  // ── React to issue ───────────────────────────────────────────────────────
-  const reactToIssue = useCallback(
-    async (
-      number: number,
-      reaction: "thumbsUp" | "thumbsDown" | "laugh" | "hooray" | "confused" | "heart" | "rocket" | "eyes",
-      add: boolean
-    ): Promise<IssueReactions | null> => {
-      try {
-        const json = await apiFetch<{ data: IssueReactions }>(
-          `/api/v1/repositories/${repoSlug}/issues/${number}/reactions`,
-          { method: "POST", body: JSON.stringify({ reaction, add }) }
-        );
-        return json.data;
-      } catch {
-        return null;
       }
     },
     [repoSlug]
@@ -291,6 +372,10 @@ export function useIssues(repoSlug: string) {
     editComment,
     deleteComment,
     reactToIssue,
+    fetchRepoLabels,
+    createRepoLabel,
+    updateRepoLabel,
+    deleteRepoLabel,
     setActionError,
   };
 }

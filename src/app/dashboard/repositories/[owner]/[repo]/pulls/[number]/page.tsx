@@ -12,6 +12,7 @@ import {
   DiffLine,
   PRDiff,
   InlineFileComments,
+  RepoLabel,
 } from "@/hooks/usePullRequests";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -832,17 +833,26 @@ function ConversationTab({
   onMerge,
   onClose,
   onAddComment,
+  onAddLabel,
+  onRemoveLabel,
+  repoLabels,
   mergeLoading,
+  actionLoading,
 }: {
   pr: PullRequest;
   repoName: string;
   onMerge: (method: "merge" | "squash" | "rebase") => void;
   onClose: () => void;
   onAddComment: (body: string) => void;
+  onAddLabel: (l: RepoLabel) => Promise<void>;
+  onRemoveLabel: (name: string) => Promise<void>;
+  repoLabels: RepoLabel[];
   mergeLoading: boolean;
+  actionLoading: boolean;
 }) {
   const [commentBody, setCommentBody] = useState("");
   const [mergeMenu, setMergeMenu] = useState(false);
+  const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
 
   function handleComment() {
     if (!commentBody.trim()) return;
@@ -1076,25 +1086,92 @@ function ConversationTab({
                 <span className="text-sm text-white/60">{pr.authorName}</span>
               </div>
             </div>
-            {(pr.labels ?? []).length > 0 && (
-              <div>
-                <p className="text-xs text-white/30 mb-1.5">Labels</p>
-                <div className="flex flex-wrap gap-1">
-                  {(pr.labels ?? []).map((l) => {
-                    const bg = l.color ? `#${l.color.replace("#", "")}` : "#6366f1";
-                    return (
-                      <span
-                        key={l.name}
-                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                        style={{ backgroundColor: bg + "33", color: bg, border: `1px solid ${bg}55` }}
-                      >
-                        {l.name}
-                      </span>
-                    );
-                  })}
-                </div>
+            {/* ── Labels editor ───────────────────────────────────────── */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs text-white/30">Labels</p>
+                <button
+                  onClick={() => setLabelDropdownOpen((p) => !p)}
+                  className="cursor-pointer text-white/25 hover:text-white/55 transition-colors"
+                  title="Add label"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
               </div>
-            )}
+
+              {(pr.labels ?? []).length === 0 && !labelDropdownOpen && (
+                <p className="text-white/20 text-xs italic">None yet</p>
+              )}
+              <div className="flex flex-wrap gap-1">
+                {(pr.labels ?? []).map((l) => {
+                  const bg = l.color
+                    ? l.color.startsWith("#") ? l.color : "#" + l.color
+                    : "#6366f1";
+                  return (
+                    <span
+                      key={l.name}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                      style={{ backgroundColor: bg + "33", color: bg, border: `1px solid ${bg}55` }}
+                    >
+                      {l.name}
+                      <button
+                        onClick={() => onRemoveLabel(l.name)}
+                        disabled={actionLoading}
+                        className="cursor-pointer ml-0.5 opacity-60 hover:opacity-100 transition-opacity disabled:opacity-30 leading-none"
+                        title={`Remove "${l.name}"`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+
+              {/* Dropdown */}
+              {labelDropdownOpen && (
+                <div className="mt-2 border border-white/[0.10] rounded-lg bg-[#12121a] overflow-hidden">
+                  {repoLabels.length === 0 ? (
+                    <p className="text-white/25 text-xs px-3 py-2 italic">No labels defined for this repo</p>
+                  ) : (
+                    <div className="max-h-44 overflow-y-auto divide-y divide-white/[0.05]">
+                      {repoLabels.map((rl) => {
+                        const bg = rl.color
+                          ? rl.color.startsWith("#") ? rl.color : "#" + rl.color
+                          : "#6366f1";
+                        const applied = (pr.labels ?? []).some((l) => l.name === rl.name);
+                        return (
+                          <button
+                            key={rl.id}
+                            onClick={() => { onAddLabel(rl); setLabelDropdownOpen(false); }}
+                            disabled={applied || actionLoading}
+                            className="cursor-pointer w-full flex items-center gap-2 px-3 py-2 hover:bg-white/[0.04] transition-colors disabled:opacity-40 text-left"
+                          >
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: bg }}
+                            />
+                            <span className="text-xs text-white/70 flex-1 truncate">{rl.name}</span>
+                            {applied && (
+                              <svg className="w-3 h-3 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setLabelDropdownOpen(false)}
+                    className="cursor-pointer w-full text-center text-xs text-white/25 hover:text-white/50 py-1.5 border-t border-white/[0.06] transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
             {pr.state === "open" && (
               <div className="pt-1">
                 <button
@@ -1177,11 +1254,13 @@ export default function PRDetailPage({
   const {
     fetchPR, fetchDiff, mergePR, updatePR, addComment, actionLoading,
     fetchInlineComments, addInlineComment, editInlineComment, deleteInlineComment, resolveInlineThread,
+    fetchRepoLabels,
   } = usePullRequests(name);
 
   const [pr, setPr] = useState<PullRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("conversation");
+  const [repoLabels, setRepoLabels] = useState<RepoLabel[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1191,6 +1270,28 @@ export default function PRDetailPage({
   }, [fetchPR, num]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    fetchRepoLabels().then((labels) => { if (labels) setRepoLabels(labels); });
+  }, [fetchRepoLabels]);
+
+  async function handleAddLabel(l: RepoLabel) {
+    if (!pr) return;
+    const current = pr.labels ?? [];
+    if (current.some((x) => x.name === l.name)) return;
+    const updated = await updatePR(num, {
+      labels: [...current, { name: l.name, color: l.color }],
+    });
+    if (updated) setPr(updated);
+  }
+
+  async function handleRemoveLabel(labelName: string) {
+    if (!pr) return;
+    const updated = await updatePR(num, {
+      labels: (pr.labels ?? []).filter((l) => l.name !== labelName),
+    });
+    if (updated) setPr(updated);
+  }
 
   async function handleMerge(method: "merge" | "squash" | "rebase") {
     const updated = await mergePR(num, method);
@@ -1350,7 +1451,11 @@ export default function PRDetailPage({
               onMerge={handleMerge}
               onClose={handleClose}
               onAddComment={handleComment}
+              onAddLabel={handleAddLabel}
+              onRemoveLabel={handleRemoveLabel}
+              repoLabels={repoLabels}
               mergeLoading={actionLoading}
+              actionLoading={actionLoading}
             />
           )}
           {tab === "changes" && (

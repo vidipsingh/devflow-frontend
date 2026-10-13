@@ -11,6 +11,18 @@ export interface PRLabel {
   color: string;
 }
 
+// RepoLabel mirrors the server-side RepoLabel model stored in the "repo_labels" collection.
+export interface RepoLabel {
+  id: string;
+  repoId: string;
+  repoSlug: string;
+  name: string;
+  color: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PRComment {
   id: string;
   authorId: string;
@@ -134,12 +146,13 @@ export function usePullRequests(repoSlug: string) {
 
   // ── List PRs ──────────────────────────────────────────────────────────────
   const fetchPRs = useCallback(
-    async (state: "open" | "closed" | "merged" | "" = "open") => {
+    async (state: "open" | "closed" | "merged" | "" = "open", label = "") => {
       setLoading(true);
       setError(null);
       try {
         const params = new URLSearchParams();
         if (state) params.set("state", state);
+        if (label) params.set("label", label);
         const json = await apiFetch<{ data: PRListResult }>(
           `/api/v1/repositories/${apiSlug}/pulls?${params}`
         );
@@ -448,6 +461,75 @@ export function usePullRequests(repoSlug: string) {
     [repoSlug]
   );
 
+  // ── Repo label CRUD ───────────────────────────────────────────────────────
+  const fetchRepoLabels = useCallback(async (): Promise<RepoLabel[]> => {
+    try {
+      const json = await apiFetch<{ data: { labels: RepoLabel[] } }>(
+        `/api/v1/repositories/${apiSlug}/labels`
+      );
+      return json.data.labels ?? [];
+    } catch {
+      return [];
+    }
+  }, [repoSlug]);
+
+  const createRepoLabel = useCallback(
+    async (payload: { name: string; color: string; description?: string }): Promise<RepoLabel | null> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        const json = await apiFetch<{ data: RepoLabel }>(
+          `/api/v1/repositories/${apiSlug}/labels`,
+          { method: "POST", body: JSON.stringify(payload) }
+        );
+        return json.data;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return null;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [repoSlug]
+  );
+
+  const updateRepoLabel = useCallback(
+    async (labelId: string, payload: { name?: string; color?: string; description?: string }): Promise<RepoLabel | null> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        const json = await apiFetch<{ data: RepoLabel }>(
+          `/api/v1/repositories/${apiSlug}/labels/${labelId}`,
+          { method: "PATCH", body: JSON.stringify(payload) }
+        );
+        return json.data;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return null;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [repoSlug]
+  );
+
+  const deleteRepoLabel = useCallback(
+    async (labelId: string): Promise<boolean> => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        await apiFetch(`/api/v1/repositories/${apiSlug}/labels/${labelId}`, { method: "DELETE" });
+        return true;
+      } catch (e: unknown) {
+        setActionError(e instanceof Error ? e.message : "Unknown error");
+        return false;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [repoSlug]
+  );
+
   return {
     prs,
     total,
@@ -471,6 +553,10 @@ export function usePullRequests(repoSlug: string) {
     deleteInlineComment,
     resolveInlineThread,
     triggerAIReview,
+    fetchRepoLabels,
+    createRepoLabel,
+    updateRepoLabel,
+    deleteRepoLabel,
     setActionError,
   };
 }

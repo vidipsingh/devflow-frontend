@@ -3,7 +3,7 @@
 
 import { use, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { usePullRequests, PullRequest, PRLabel } from "@/hooks/usePullRequests";
+import { usePullRequests, PullRequest, PRLabel, RepoLabel } from "@/hooks/usePullRequests";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string) {
@@ -122,18 +122,25 @@ function PRRow({ pr, repoName }: { pr: PullRequest; repoName: string }) {
 export default function PullsPage({ params }: { params: Promise<{ owner: string; repo: string }> }) {
   const { owner, repo } = use(params);
   const name = `${owner}/${repo}`;
-  const { prs, total, loading, error, fetchPRs } = usePullRequests(name);
+  const { prs, total, loading, error, fetchPRs, fetchRepoLabels } = usePullRequests(name);
 
   const [tab, setTab] = useState<"open" | "closed" | "merged">("open");
+  const [activeLabel, setActiveLabel] = useState("");
+  const [repoLabels, setRepoLabels] = useState<RepoLabel[]>([]);
+
+  // Load repo labels once on mount
+  useEffect(() => {
+    fetchRepoLabels().then(setRepoLabels);
+  }, [fetchRepoLabels]);
 
   const load = useCallback(
-    (state: "open" | "closed" | "merged") => fetchPRs(state),
+    (state: "open" | "closed" | "merged", lbl: string) => fetchPRs(state, lbl),
     [fetchPRs]
   );
 
   useEffect(() => {
-    load(tab);
-  }, [tab, load]);
+    load(tab, activeLabel);
+  }, [tab, activeLabel, load]);
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
@@ -165,6 +172,50 @@ export default function PullsPage({ params }: { params: Promise<{ owner: string;
             New pull request
           </Link>
         </div>
+
+        {/* ── Label filter chips ─────────────────────────────────────────── */}
+        {repoLabels.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-white/30 text-xs font-medium">Filter by label:</span>
+            <button
+              onClick={() => setActiveLabel("")}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+                activeLabel === ""
+                  ? "bg-indigo-500/20 border-indigo-400/40 text-indigo-300"
+                  : "bg-white/[0.04] border-white/[0.10] text-white/50 hover:bg-white/[0.07] hover:text-white/70"
+              }`}
+            >
+              All
+            </button>
+            {repoLabels.map((l) => {
+              const bg = l.color ? `#${l.color.replace("#", "")}` : "#6366f1";
+              const isActive = activeLabel === l.name;
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => setActiveLabel(isActive ? "" : l.name)}
+                  title={l.description || l.name}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer ${
+                    isActive ? "ring-2 ring-offset-1 ring-offset-[#0a0a0f]" : "hover:opacity-90"
+                  }`}
+                  style={{
+                    backgroundColor: bg + "22",
+                    color: bg,
+                    borderColor: bg + "55",
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: bg }} />
+                  {l.name}
+                  {isActive && (
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Filter bar ─────────────────────────────────────────────────── */}
         <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0d14]">
@@ -207,6 +258,11 @@ export default function PullsPage({ params }: { params: Promise<{ owner: string;
               </svg>
               {tab === "merged" ? `${total} Merged` : "Merged"}
             </button>
+            {activeLabel && (
+              <span className="ml-auto text-xs text-white/30 italic">
+                Filtered by: <span className="text-white/60 not-italic font-medium">{activeLabel}</span>
+              </span>
+            )}
           </div>
 
           {/* ── PR list ───────────────────────────────────────────── */}

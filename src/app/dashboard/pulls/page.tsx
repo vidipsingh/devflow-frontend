@@ -15,7 +15,7 @@ interface PullRequest {
   id: string;
   number: number;
   repoSlug: string;
-  repoFullName?: string;  // owner/repo — used for navigation
+  repoFullName?: string;  // owner~repo from backend — convert ~ → / for hrefs
   title: string;
   state: "open" | "closed" | "merged";
   authorName: string;
@@ -38,6 +38,12 @@ interface Repo {
   fullName?: string;
 }
 
+/** Convert backend slug (owner~repo or bare-name) to URL path (owner/repo) */
+function slugToPath(slug: string | undefined): string {
+  if (!slug) return "";
+  return slug.replace(/~/g, "/");
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -55,6 +61,12 @@ function timeAgo(dateStr: string) {
 
 // ─── PR row ───────────────────────────────────────────────────────────────────
 function PRRow({ pr }: { pr: PullRequest }) {
+  // Backend returns repoFullName as "owner~repo"; convert to "owner/repo" for URLs
+  const repoPath = slugToPath(pr.repoFullName ?? pr.repoSlug);
+  const repoDisplay = pr.repoFullName
+    ? pr.repoFullName.replace(/~/g, "/")
+    : pr.repoSlug;
+
   const stateColor =
     pr.state === "merged" ? "text-violet-400"
     : pr.state === "closed" ? "text-red-400"
@@ -83,7 +95,7 @@ function PRRow({ pr }: { pr: PullRequest }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2 flex-wrap">
           <Link
-            href={`/dashboard/repositories/${pr.repoFullName ?? pr.repoSlug}/pulls/${pr.number}`}
+            href={`/dashboard/repositories/${repoPath}/pulls/${pr.number}`}
             className="text-sm font-medium text-white/90 hover:text-indigo-300 transition-colors leading-snug"
           >
             {pr.title}
@@ -108,10 +120,10 @@ function PRRow({ pr }: { pr: PullRequest }) {
         </div>
         <p className="text-white/30 text-xs mt-1">
           <Link
-            href={`/dashboard/repositories/${pr.repoFullName ?? pr.repoSlug}/pulls`}
+            href={`/dashboard/repositories/${repoPath}/pulls`}
             className="text-indigo-400/70 hover:text-indigo-300 transition-colors"
           >
-            {pr.repoFullName ?? pr.repoSlug}
+            {repoDisplay}
           </Link>
           <span className="mx-1 text-white/15">·</span>
           #{pr.number}
@@ -157,23 +169,51 @@ export default function GlobalPullsPage() {
 
   const [selectedRepo, setSelectedRepo] = useState<string>("__all__");
   const [tab, setTab] = useState<"open" | "closed" | "merged">("open");
+  const [activeLabel, setActiveLabel] = useState("");
+  const [allLabels, setAllLabels] = useState<PRLabel[]>([]);
   const [page, setPage] = useState(1);
   const LIMIT = 20;
 
   const [prs, setPrs] = useState<PullRequest[]>([]);
   const [total, setTotal] = useState(0);
-  // Persist open-PR count across tab switches so the chip never shows "?"
+
+  // Persistent counts shown in ALL tab buttons regardless of which tab is active
   const [openCount, setOpenCount] = useState<number | null>(null);
+  const [closedCount, setClosedCount] = useState<number | null>(null);
+  const [mergedCount, setMergedCount] = useState<number | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ── Fetch user repos once (dropdown only) ───────────────────────────────
   useEffect(() => {
     apiFetch<{ success: boolean; data: { repositories: Repo[] } }>("/api/v1/repositories")
-      .then((json) => { if (json.success) setRepos(json.data?.repositories ?? []); })
+      .then((json) => {
+        if (json.success) setRepos(json.data?.repositories ?? []);
+      })
       .catch(() => {/* ignore */})
       .finally(() => setReposLoaded(true));
   }, []);
+
+  // ── Fetch counts for ALL three states in parallel on load / repo change ──
+  const fetchCounts = useCallback(async () => {
+    const repoSlug = selectedRepo === "__all__" ? "" : selectedRepo;
+    const base = repoSlug ? `&repo=${encodeURIComponent(repoSlug)}` : "";
+    try {
+      const [openJson, closedJson, mergedJson] = await Promise.all([
+        apiFetch<{ success: boolean; data: { total: number } }>(`/api/v1/pulls?state=open&page=1&limit=1${base}`),
+        apiFetch<{ success: boolean; data: { total: number } }>(`/api/v1/pulls?state=closed&page=1&limit=1${base}`),
+        apiFetch<{ success: boolean; data: { total: number } }>(`/api/v1/pulls?state=merged&page=1&limit=1${base}`),
+      ]);
+      if (openJson.success) setOpenCount(openJson.data?.total ?? 0);
+      if (closedJson.success) setClosedCount(closedJson.data?.total ?? 0);
+      if (mergedJson.success) setMergedCount(mergedJson.data?.total ?? 0);
+    } catch {/* ignore count errors */}
+  }, [selectedRepo]);
+
+  useEffect(() => {
+    if (reposLoaded) fetchCounts();
+  }, [fetchCounts, reposLoaded]);
 
   // ── Fetch PRs — single backend call ─────────────────────────────────────
   const fetchPRs = useCallback(async () => {
@@ -186,6 +226,7 @@ export default function GlobalPullsPage() {
         page: String(page),
         limit: String(LIMIT),
         ...(repoSlug ? { repo: repoSlug } : {}),
+        ...(activeLabel ? { label: activeLabel } : {}),
       });
       const json = await apiFetch<{ success: boolean; data: { pullRequests: PullRequest[]; total: number } }>(
         `/api/v1/pulls?${params}`
@@ -195,28 +236,51 @@ export default function GlobalPullsPage() {
       const fetchedTotal = json.data?.total ?? 0;
       setPrs(fetchedPRs);
       setTotal(fetchedTotal);
-      // Keep a persistent open count for the header chip
+      // Keep persistent counts in sync with latest fetch
       if (tab === "open") setOpenCount(fetchedTotal);
+      if (tab === "closed") setClosedCount(fetchedTotal);
+      if (tab === "merged") setMergedCount(fetchedTotal);
+      // Collect unique labels from the fetched PRs for the filter dropdown
+      setAllLabels((prev) => {
+        const seen = new Set(prev.map((l) => l.name));
+        const merged = [...prev];
+        fetchedPRs.forEach((pr) => {
+          (pr.labels ?? []).forEach((l) => {
+            if (!seen.has(l.name)) { seen.add(l.name); merged.push(l); }
+          });
+        });
+        return merged;
+      });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setLoading(false);
     }
-  }, [selectedRepo, tab, page]);
+  }, [selectedRepo, tab, page, activeLabel]);
 
   useEffect(() => {
     if (reposLoaded) fetchPRs();
   }, [fetchPRs, reposLoaded]);
 
-  // Reset page when repo or tab changes
+  // Reset page when repo / tab / label changes
   const handleRepoChange = (slug: string) => {
     setSelectedRepo(slug);
     setPage(1);
+    // Reset counts so they reload for new repo
+    setOpenCount(null);
+    setClosedCount(null);
+    setMergedCount(null);
   };
   const handleTabChange = (t: "open" | "closed" | "merged") => {
     setTab(t);
     setPage(1);
   };
+  const clearLabel = () => {
+    setActiveLabel("");
+    setPage(1);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
@@ -239,43 +303,73 @@ export default function GlobalPullsPage() {
           </div>
         </div>
 
-        {/* ── Toolbar: repo filter + state tabs ──────────────────────────── */}
+        {/* ── Toolbar: repo filter + label filter ────────────────────────── */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          {/* Repo filter */}
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-white/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-            </svg>
-            <select
-              value={selectedRepo}
-              onChange={(e) => { handleRepoChange(e.target.value); setOpenCount(null); }}
-              disabled={loading}
-              className="bg-[#0d0d14] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-white/70 focus:outline-none focus:border-indigo-400/40 cursor-pointer appearance-none pr-8 min-w-[180px]"
-            >
-              <option value="__all__">All repositories</option>
-              {repos.map((r) => (
-                <option key={r.id} value={r.slug}>{r.name}</option>
-              ))}
-            </select>
-          </div>
+          {/* Left: repo + label filters */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Repo select */}
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-white/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+              <select
+                value={selectedRepo}
+                onChange={(e) => handleRepoChange(e.target.value)}
+                disabled={loading}
+                className="bg-[#0d0d14] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-white/70 focus:outline-none focus:border-indigo-400/40 cursor-pointer appearance-none pr-8 min-w-[180px]"
+              >
+                <option value="__all__">All repositories</option>
+                {repos.map((r) => (
+                  <option key={r.id} value={r.slug}>{r.name}</option>
+                ))}
+              </select>
+            </div>
 
-          {/* Stats chips */}
-          <div className="flex items-center gap-2 text-xs text-white/35">
-            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.07]">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-              {openCount !== null ? openCount : (loading ? "…" : total)} open
-            </span>
-            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.07]">
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 inline-block" />
-              merged
-            </span>
+            {/* Label dropdown — always visible; options populate after first fetch */}
+            <div className="flex items-center gap-2">
+              <svg className="w-3.5 h-3.5 text-white/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+              <div className="relative">
+                <select
+                  value={activeLabel}
+                  onChange={(e) => { setActiveLabel(e.target.value); setPage(1); }}
+                  className="bg-[#0d0d14] border border-white/[0.08] rounded-lg pl-3 pr-8 py-1.5 text-sm text-white/70 appearance-none focus:outline-none focus:border-indigo-400/40 transition-colors cursor-pointer"
+                >
+                  <option value="">All labels</option>
+                  {allLabels.map((l) => (
+                    <option key={l.name} value={l.name}>{l.name}</option>
+                  ))}
+                </select>
+                <svg className="w-3.5 h-3.5 text-white/30 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Active label chip */}
+            {activeLabel && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-xs font-medium">
+                <svg className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                {activeLabel}
+                <button
+                  onClick={clearLabel}
+                  className="ml-0.5 text-indigo-300/60 hover:text-indigo-200 transition-colors leading-none cursor-pointer"
+                  aria-label="Clear label filter"
+                >
+                  ×
+                </button>
+              </span>
+            )}
           </div>
         </div>
 
         {/* ── Main list panel ─────────────────────────────────────────────── */}
         <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0d14]">
 
-          {/* Tab bar */}
+          {/* Tab bar — counts always visible for all three tabs */}
           <div className="flex items-center gap-1 px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
             {/* Open */}
             <button
@@ -287,12 +381,12 @@ export default function GlobalPullsPage() {
               <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
               </svg>
-              {tab === "open" ? `${total} Open` : "Open"}
+              {openCount !== null ? `${openCount} Open` : "Open"}
             </button>
 
             {/* Closed */}
             <button
-              onClick={() => setTab("closed")}
+              onClick={() => handleTabChange("closed")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
                 tab === "closed" ? "text-white bg-white/[0.07]" : "text-white/40 hover:text-white/70"
               }`}
@@ -300,12 +394,12 @@ export default function GlobalPullsPage() {
               <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
-              {tab === "closed" ? `${total} Closed` : "Closed"}
+              {closedCount !== null ? `${closedCount} Closed` : "Closed"}
             </button>
 
             {/* Merged */}
             <button
-              onClick={() => setTab("merged")}
+              onClick={() => handleTabChange("merged")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
                 tab === "merged" ? "text-white bg-white/[0.07]" : "text-white/40 hover:text-white/70"
               }`}
@@ -313,7 +407,7 @@ export default function GlobalPullsPage() {
               <svg className="w-3.5 h-3.5 text-violet-400" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0 0 .005L5 3.25Z" />
               </svg>
-              {tab === "merged" ? `${total} Merged` : "Merged"}
+              {mergedCount !== null ? `${mergedCount} Merged` : "Merged"}
             </button>
           </div>
 
@@ -358,7 +452,7 @@ export default function GlobalPullsPage() {
               </div>
               {repos.length > 0 && tab === "open" && (
                 <Link
-                  href={`/dashboard/repositories/${repos[0]?.fullName ?? repos[0]?.slug ?? ""}/pulls/new`}
+                  href={`/dashboard/repositories/${slugToPath(repos[0]?.fullName ?? repos[0]?.slug ?? "")}/pulls/new`}
                   className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
                 >
                   Open a pull request →
@@ -374,6 +468,27 @@ export default function GlobalPullsPage() {
           )}
         </div>
 
+        {/* ── Pagination ──────────────────────────────────────────────────── */}
+        {!loading && !error && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1.5 rounded-lg border border-white/[0.08] text-white/50 text-sm hover:border-white/20 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ← Prev
+            </button>
+            <span className="text-white/30 text-sm">Page {page} of {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1.5 rounded-lg border border-white/[0.08] text-white/50 text-sm hover:border-white/20 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Next →
+            </button>
+          </div>
+        )}
+
         {/* ── Quick links ─────────────────────────────────────────────────── */}
         {repos.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
@@ -381,7 +496,7 @@ export default function GlobalPullsPage() {
             {repos.slice(0, 8).map((r) => (
               <Link
                 key={r.id}
-                href={`/dashboard/repositories/${r.fullName ?? r.slug}/pulls`}
+                href={`/dashboard/repositories/${slugToPath(r.fullName ?? r.slug)}/pulls`}
                 className="text-xs px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.07] text-white/40 hover:text-white/70 hover:border-white/20 transition-colors"
               >
                 {r.name}
