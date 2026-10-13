@@ -240,7 +240,6 @@ export default function Topbar({
               </div>
               {/* Menu items */}
               {[
-                { label: "Your profile",   href: "/dashboard/profile"              },
                 { label: "Repositories",   href: "/dashboard/repositories"         },
                 { label: "Settings",       href: "/dashboard/settings"             },
               ].map((item) => (
