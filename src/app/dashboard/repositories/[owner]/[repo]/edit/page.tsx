@@ -90,7 +90,7 @@ export default function EditFilePage({
         ? localStorage.getItem("devflow_token") ?? ""
         : "";
     fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8080"}/api/v1/repositories/${encoded}/blob?${params}`,
+      `${process.env.NEXT_PUBLIC_BACKEND_URL ?? ""}/api/v1/repositories/${encoded}/blob?${params}`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
       .then((r) => {

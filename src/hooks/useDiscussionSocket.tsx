@@ -13,7 +13,7 @@ import {
 } from "react";
 
 // ─── Config (resolved at build time by Next.js, same pattern as apiFetch.ts) ──
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8080";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 const WS_BASE     = BACKEND_URL.replace(/^http/, "ws");
 
 // ─── Event shapes ─────────────────────────────────────────────────────────────
