@@ -218,7 +218,7 @@ function InlineCommentThread({
     setCollapsed(true);
   }
 
-  // Collapsed resolved thread — show a single summary row
+  // Collapsed resolved thread - show a single summary row
   if (collapsed && isResolved) {
     return (
       <tr>
@@ -228,7 +228,7 @@ function InlineCommentThread({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="text-xs text-emerald-400/80 flex-1">
-              {comments.length} comment{comments.length !== 1 ? "s" : ""} — resolved
+              {comments.length} comment{comments.length !== 1 ? "s" : ""} - resolved
             </span>
             <button
               onClick={() => setCollapsed(false)}
@@ -403,7 +403,7 @@ function DiffHunkBlock({
   onDeleteComment: (commentId: string) => Promise<void>;
   onResolveThread: (filePath: string, lineNumber: number) => Promise<void>;
 }) {
-  // Track which line has the compose box open — uses a unique composite key
+  // Track which line has the compose box open - uses a unique composite key
   // "del:N", "add:N", or "ctx:N" to prevent oldNo/newNo collisions across line types.
   const [commentingLine, setCommentingLine] = useState<string | null>(null);
 
@@ -419,7 +419,7 @@ function DiffHunkBlock({
         {hunk.lines.map((line: DiffLine, idx: number) => {
           const isAdd = line.type === "addition";
           const isDel = line.type === "deletion";
-          // Unique key per rendered row — prevents oldNo=5 deletion and newNo=5 context/addition
+          // Unique key per rendered row - prevents oldNo=5 deletion and newNo=5 context/addition
           // from both matching the same commentingLine number.
           const lineKey = isDel
             ? `del:${line.oldNo ?? idx}`
@@ -464,7 +464,7 @@ function DiffHunkBlock({
                 <td className={`py-[3px] pr-4 whitespace-pre ${contentColor} overflow-x-auto`}>
                   {line.content.substring(1)}
                 </td>
-                {/* + button — always visible at low opacity, full on hover */}
+                {/* + button - always visible at low opacity, full on hover */}
                 <td className="w-8 py-[3px] pr-1 text-right select-none">
                   <button
                     onClick={() => setCommentingLine(commentingLine === lineKey ? null : lineKey)}
@@ -495,7 +495,7 @@ function DiffHunkBlock({
                 />
               )}
 
-              {/* Compose box — only shown for the exact row whose lineKey matches */}
+              {/* Compose box - only shown for the exact row whose lineKey matches */}
               {commentingLine === lineKey && (
                 <InlineCommentBox
                   onSubmit={async (body) => {
@@ -562,7 +562,7 @@ function FileDiffCard({
       {!collapsed && (
         file.isBinary ? (
           <div className="px-4 py-6 text-center text-white/30 text-sm">
-            Binary file — no preview available
+            Binary file - no preview available
           </div>
         ) : file.hunks.length === 0 ? (
           <div className="px-4 py-6 text-center text-white/30 text-sm">
@@ -769,7 +769,7 @@ function InlineConversationThread({
         ? "border-emerald-500/20 bg-[#0a0d0a]"
         : "border-white/[0.08] bg-[#0d0d14]"
     }`}>
-      {/* Thread header — file path + line + resolved badge */}
+      {/* Thread header - file path + line + resolved badge */}
       <div className={`flex items-center gap-2 px-4 py-2 border-b ${
         isResolved ? "border-emerald-500/15 bg-emerald-500/[0.05]" : "border-white/[0.06] bg-white/[0.02]"
       }`}>

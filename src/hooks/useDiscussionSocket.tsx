@@ -107,7 +107,7 @@ export function DiscussionSocketProvider({ slug, children }: ProviderProps) {
         ws = null;
         setConnected(false);
         if (destroyed) return;
-        if (ev.code === 4001) return; // auth failure — don't retry
+        if (ev.code === 4001) return; // auth failure - don't retry
         const delay = retryDelay;
         retryDelay = Math.min(delay * 2, 8000);
         retryTimer = setTimeout(connect, delay);
@@ -155,7 +155,7 @@ export function DiscussionSocketProvider({ slug, children }: ProviderProps) {
  * level so the single WebSocket survives page-to-page navigation.
  *
  * The `_slug` parameter is kept for call-site compatibility but routing is
- * handled by the provider — you don't need to pass it here.
+ * handled by the provider - you don't need to pass it here.
  */
 export function useDiscussionSocket(
   _slug: string | null | undefined,

@@ -67,7 +67,7 @@ export interface SessionMeta {
   repoId:    string;
   prNum:     string;
   repoName:  string;
-  /** userId of whoever created the session — only they can end it for everyone */
+  /** userId of whoever created the session - only they can end it for everyone */
   ownerId:   string;
 }
 
@@ -76,19 +76,19 @@ export interface SessionMeta {
 interface ReviewCtx {
   /** Currently active session meta, or null when not in a call */
   meta:           SessionMeta | null;
-  /** Join a new session — starts media + WS */
+  /** Join a new session - starts media + WS */
   join:           (m: SessionMeta) => void;
-  /** Leave the session — cleans up everything */
+  /** Leave the session - cleans up everything */
   leave:          () => void;
-  /** End the session for all participants (owner only) — calls REST + WS broadcast */
+  /** End the session for all participants (owner only) - calls REST + WS broadcast */
   endSession:     () => Promise<void>;
   /** True when the current user is the session owner */
   isOwner:        boolean;
 
   localStream:    MediaStream | null;
-  /** What the local tile renders — camera OR screen share */
+  /** What the local tile renders - camera OR screen share */
   localDisplay:   MediaStream | null;
-  /** Raw camera stream — used for PiP overlay when screen sharing */
+  /** Raw camera stream - used for PiP overlay when screen sharing */
   cameraStream:   MediaStream | null;
   peers:          Map<string, RemotePeer>;
   connected:      boolean;
@@ -175,7 +175,7 @@ export function ReviewSessionProvider({ children }: { children: ReactNode }) {
 
     const pc = new RTCPeerConnection({ iceServers: ICE });
 
-    // Add all local tracks — even if disabled/muted
+    // Add all local tracks - even if disabled/muted
     const src = localRef.current;
     if (src) {
       src.getTracks().forEach(t => pc.addTrack(t, src));
@@ -261,7 +261,7 @@ export function ReviewSessionProvider({ children }: { children: ReactNode }) {
 
     switch (msg.type) {
 
-      // We just connected — send offers to every existing participant
+      // We just connected - send offers to every existing participant
       case "joined": {
         for (const p of (msg.participants ?? [])) {
           if (p.userId === myUserId) continue;
@@ -295,7 +295,7 @@ export function ReviewSessionProvider({ children }: { children: ReactNode }) {
         break;
       }
 
-      // Incoming offer — we are the answerer
+      // Incoming offer - we are the answerer
       case "offer": {
         if (!msg.payload || msg.from === myUserId) break;
         // Perfect negotiation: if we're also making an offer, the polite peer backs off.
@@ -305,7 +305,7 @@ export function ReviewSessionProvider({ children }: { children: ReactNode }) {
 
         const offerCollision = makingOfferRef.current.has(msg.from) || pc.signalingState !== "stable";
         if (offerCollision) {
-          // We're the polite peer — rollback our own offer and accept theirs
+          // We're the polite peer - rollback our own offer and accept theirs
           try {
             await pc.setLocalDescription({ type: "rollback" });
           } catch { /* may not be needed in stable state */ }
@@ -361,7 +361,7 @@ export function ReviewSessionProvider({ children }: { children: ReactNode }) {
 
       // Session owner ended the session for everyone
       case "session-ended": {
-        // Trigger leave without navigating — page.tsx listens to meta becoming null
+        // Trigger leave without navigating - page.tsx listens to meta becoming null
         leave();
         break;
       }
@@ -384,7 +384,7 @@ export function ReviewSessionProvider({ children }: { children: ReactNode }) {
     }
   }, [myUserId, createPC, closePC, flushIce, sendSignal, broadcastMute]);
 
-  // ── join() — start media + open WS ────────────────────────────────────────
+  // ── join() - start media + open WS ────────────────────────────────────────
 
   const join = useCallback(async (m: SessionMeta) => {
     // Reset state
@@ -443,7 +443,7 @@ export function ReviewSessionProvider({ children }: { children: ReactNode }) {
     setError(null);
   }, []);
 
-  // ── endSession() — owner-only: REST + WS broadcast → then leave ──────────
+  // ── endSession() - owner-only: REST + WS broadcast → then leave ──────────
   // Defined AFTER leave() so the closure captures the stable leave reference.
 
   const endSession = useCallback(async () => {

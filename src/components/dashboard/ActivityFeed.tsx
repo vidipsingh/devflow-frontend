@@ -11,7 +11,7 @@ interface ActivityItem {
   id: string;
   type: ActivityType;
   repo: string;
-  /** owner~slug URL segment — used for navigation links */
+  /** owner~slug URL segment - used for navigation links */
   repoUrl: string;
   message: string;
   time: string;       // relative e.g. "2m ago"
@@ -275,7 +275,7 @@ export default function ActivityFeed() {
           Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
         ) : items.length === 0 ? (
           <div className="py-10 text-center text-[#52525b] text-xs">
-            No activity yet — upload a file to create your first commit.
+            No activity yet - upload a file to create your first commit.
           </div>
         ) : (
           displayed.map((item) => <ActivityRow key={item.id} item={item} />)

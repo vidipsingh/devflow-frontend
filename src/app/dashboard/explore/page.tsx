@@ -33,7 +33,7 @@ function timeAgo(iso: string) {
 function RepoCard({ repo }: { repo: APIRepo }) {
   const langColor = LANG_COLOR[repo.language] ?? "bg-white/30";
   const slug = repo.slug ?? repo.name.toLowerCase().replace(/\s+/g, "-");
-  // fullName looks like "username/repo-slug" — extract username for display
+  // fullName looks like "username/repo-slug" - extract username for display
   const ownerName = repo.fullName?.split("/")[0] ?? "unknown";
 
   return (

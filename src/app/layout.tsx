@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DevFlow — Code Hosting & Collaboration",
+  title: "DevFlow - Code Hosting & Collaboration",
   description:
     "DevFlow is the next-generation developer platform with real-time pair programming, gamification, inline code reviews, and a snippet marketplace. Ship better code, faster.",
   keywords: [
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "DevFlow Team" }],
   openGraph: {
-    title: "DevFlow — Code Hosting for Modern Teams",
+    title: "DevFlow - Code Hosting for Modern Teams",
     description:
       "Ship better code faster with real-time collaboration, inline PR reviews, and developer gamification.",
     type: "website",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "DevFlow — Code Hosting for Modern Teams",
+    title: "DevFlow - Code Hosting for Modern Teams",
     description: "Ship better code faster with real-time collaboration and gamification.",
   },
   robots: { index: true, follow: true },

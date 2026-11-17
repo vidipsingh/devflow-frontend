@@ -111,7 +111,7 @@ export default function RepositoriesPage() {
   const hasResults = filtered.length > 0;
   const hasSearch = searchQuery.trim().length > 0 || visibilityFilter !== "all";
 
-  // Edit handler — calls API then refetches
+  // Edit handler - calls API then refetches
   async function handleUpdate(slug: string, payload: UpdateRepoPayload) {
     const ok = await updateRepo(slug, payload);
     if (ok) {
@@ -121,7 +121,7 @@ export default function RepositoriesPage() {
     return ok;
   }
 
-  // Delete handler — calls API then refetches
+  // Delete handler - calls API then refetches
   async function handleDelete(slug: string) {
     const ok = await deleteRepo(slug);
     if (ok) {

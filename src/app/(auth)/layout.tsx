@@ -4,8 +4,8 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: {
-    template: "%s — DevFlow",
-    default: "Auth — DevFlow",
+    template: "%s - DevFlow",
+    default: "Auth - DevFlow",
   },
 };
 

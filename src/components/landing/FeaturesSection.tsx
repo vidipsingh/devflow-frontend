@@ -31,7 +31,7 @@ export default function FeaturesSection() {
       tag: "DevOps",
       tagColor: "bg-emerald-500/15 border-emerald-500/25 text-emerald-400",
       title: "Smart Code Hosting",
-      desc: "Full repository protocol with branch protection, LFS, CODEOWNERS enforcement, and required CI checks — plus smart HTTP and SSH.",
+      desc: "Full repository protocol with branch protection, LFS, CODEOWNERS enforcement, and required CI checks - plus smart HTTP and SSH.",
       bullets: ["HTTP & SSH repository access", "Branch protection rules", "CI/CD integration hooks", "Automated merge checks"],
     },
     {
@@ -80,7 +80,7 @@ export default function FeaturesSection() {
             Everything your team needs
           </h2>
           <p className="text-lg text-[#71717a] max-w-2xl mx-auto">
-            From real-time pair programming to gamified developer experiences — DevFlow reimagines the entire workflow.
+            From real-time pair programming to gamified developer experiences - DevFlow reimagines the entire workflow.
           </p>
         </div>
 

@@ -33,7 +33,7 @@ export default function NewPRPage({ params }: { params: Promise<{ owner: string;
 
   // Base repo (the upstream / target)
   const { repo: baseRepo } = useRepoDetail(name);
-  // Fork repo — only loaded when arriving via compare banner (to get fork's branch list)
+  // Fork repo - only loaded when arriving via compare banner (to get fork's branch list)
   const { repo: forkRepo } = useRepoDetail(qFromFork || name);
 
   const [title, setTitle] = useState("");
@@ -64,7 +64,7 @@ export default function NewPRPage({ params }: { params: Promise<{ owner: string;
   // Base branches (upstream repo)
   const baseBranches = baseRepo?.branches ?? [];
 
-  // Head branches — when cross-repo PR, use the fork's branch list;
+  // Head branches - when cross-repo PR, use the fork's branch list;
   // otherwise fall back to base repo's branches (same-repo PR).
   const forkBranches = qFromFork ? (forkRepo?.branches ?? []) : [];
   const headBranches = qFromFork

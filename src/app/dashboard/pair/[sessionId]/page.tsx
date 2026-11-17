@@ -131,7 +131,7 @@ function PairEditor({ sessionId, session, onEnd }: EditorProps) {
     // Already in sync → local edit or no-op, never revert
     if (ta.value === target) return;
 
-    // Remote change detected — need to update textarea imperatively
+    // Remote change detected - need to update textarea imperatively
     const oldValue  = ta.value;
     const selStart  = ta.selectionStart ?? 0;
     const selEnd    = ta.selectionEnd   ?? 0;
@@ -150,10 +150,10 @@ function PairEditor({ sessionId, session, onEnd }: EditorProps) {
     while (commonPfx < minPfx && oldValue[commonPfx] === target[commonPfx]) commonPfx++;
 
     if (commonPfx >= selStart) {
-      // The change happened entirely AFTER the cursor — cursor stays put
+      // The change happened entirely AFTER the cursor - cursor stays put
       ta.setSelectionRange(selStart, selEnd);
     } else {
-      // Change happened before cursor — find common suffix from the right
+      // Change happened before cursor - find common suffix from the right
       let oldSuf = oldLen, newSuf = newLen;
       while (
         oldSuf > selStart &&
@@ -171,7 +171,7 @@ function PairEditor({ sessionId, session, onEnd }: EditorProps) {
       const newEnd   = Math.max(newStart, Math.min(selEnd + deltaBeforeCursor, newLen));
       ta.setSelectionRange(newStart, newEnd);
     }
-  }); // NO dependency array — runs after every render
+  }); // NO dependency array - runs after every render
 
   // ── Initial document load ─────────────────────────────────────────────────
   // The textarea mounts with defaultValue={session.document} but if the
@@ -216,12 +216,12 @@ function PairEditor({ sessionId, session, onEnd }: EditorProps) {
 
       if (newVal === oldVal) return;
 
-      // Forward diff — find start of change
+      // Forward diff - find start of change
       let start = 0;
       const minLen = Math.min(oldVal.length, newVal.length);
       while (start < minLen && oldVal[start] === newVal[start]) start++;
 
-      // Backward diff — find end of change from both sides
+      // Backward diff - find end of change from both sides
       let oldEnd = oldVal.length;
       let newEnd = newVal.length;
       while (
@@ -238,7 +238,7 @@ function PairEditor({ sessionId, session, onEnd }: EditorProps) {
 
       // Emit delete first (if any), then insert (if any).
       // sendDelete updates docRef.current synchronously, so sendInsert
-      // sees the post-deletion document — correct position every time.
+      // sees the post-deletion document - correct position every time.
       if (deletedCount > 0) sendDelete(start, deletedCount);
       if (insertedText)     sendInsert(start, insertedText);
     },
@@ -503,7 +503,7 @@ function PairEditor({ sessionId, session, onEnd }: EditorProps) {
             })}
           </div>
 
-          {/* UNCONTROLLED textarea — React never touches .value after mount */}
+          {/* UNCONTROLLED textarea - React never touches .value after mount */}
           <textarea
             ref={textareaRef}
             defaultValue={session.document ?? ""}
@@ -702,7 +702,7 @@ export default function PairSessionPage() {
     if (!sessionId) return;
     (async () => {
       setLoading(true);
-      // Try to join first (idempotent — server won't re-add if already a participant)
+      // Try to join first (idempotent - server won't re-add if already a participant)
       const joined = await joinSession(sessionId);
       if (joined) {
         setSession(joined);

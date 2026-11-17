@@ -65,7 +65,7 @@ export default function GamificationSection() {
               Make coding an adventure, not a chore
             </h2>
             <p className="text-[#a1a1aa] leading-relaxed mb-8">
-              Developer experience matters. DevFlow gamifies every interaction — earning XP for reviews,
+              Developer experience matters. DevFlow gamifies every interaction - earning XP for reviews,
               maintaining streaks, collecting badges, and competing on team leaderboards makes your team
               genuinely excited to contribute.
             </p>

@@ -51,7 +51,7 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Desktop Nav — centered */}
+        {/* Desktop Nav - centered */}
         <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
           {NAV_LINKS.map((link) => (
             <a

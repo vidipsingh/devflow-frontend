@@ -233,7 +233,7 @@ export default function TeamOverviewPage({ params }: PageProps) {
     try {
       const r = await requestToJoin(slug) as { joined?: boolean };
       if (r?.joined) {
-        // Open team: joined instantly — re-fetch membership from server
+        // Open team: joined instantly - re-fetch membership from server
         const me = await getMyMembership(slug);
         setMyRole(me?.role ?? "developer");
         const ms = await listTeamMembers(slug, "", 100, 0).catch(() => [] as TeamMember[]);
@@ -331,7 +331,7 @@ export default function TeamOverviewPage({ params }: PageProps) {
             <p className="text-white/40 text-sm mt-0.5">/{team.slug}</p>
           </div>
           <div className="flex gap-2 flex-wrap pb-1">
-            {/* Admin controls — only shown once membership is confirmed */}
+            {/* Admin controls - only shown once membership is confirmed */}
             {isAdmin && (
               <>
                 <Link
@@ -355,7 +355,7 @@ export default function TeamOverviewPage({ params }: PageProps) {
               </>
             )}
 
-            {/* Leave button — visible to any non-owner member */}
+            {/* Leave button - visible to any non-owner member */}
             {isMember && !isOwner && (
               <button
                 onClick={handleLeave}
@@ -366,7 +366,7 @@ export default function TeamOverviewPage({ params }: PageProps) {
               </button>
             )}
 
-            {/* Join / Request — only for confirmed non-members */}
+            {/* Join / Request - only for confirmed non-members */}
             {showJoinArea && team.joinPolicy === "invite_only" && (
               <span className="px-4 py-2 rounded-xl border border-white/[0.06] text-white/25 text-xs">
                 Invite only
@@ -409,7 +409,7 @@ export default function TeamOverviewPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Phase 2 nav strip — always visible to members */}
+        {/* Phase 2 nav strip - always visible to members */}
         {isMember && (
           <div className="flex gap-2 flex-wrap mb-6 border-b border-white/[0.05] pb-4">
             <Link
@@ -446,7 +446,7 @@ export default function TeamOverviewPage({ params }: PageProps) {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-12">
 
-          {/* Left — bio & main info */}
+          {/* Left - bio & main info */}
           <div className="lg:col-span-2 space-y-5">
 
             {/* Description */}
@@ -502,7 +502,7 @@ export default function TeamOverviewPage({ params }: PageProps) {
             )}
           </div>
 
-          {/* Right — sidebar */}
+          {/* Right - sidebar */}
           <div className="space-y-4">
 
             {/* About card */}

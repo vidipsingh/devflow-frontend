@@ -104,7 +104,7 @@ const ACTIONS: QuickAction[] = [
 ];
 
 
-// GamificationStrip — shows XP, level, badges
+// GamificationStrip - shows XP, level, badges
 
 
 function GamificationStrip({ user }: { user: DashboardUser }) {

@@ -26,14 +26,14 @@ function fmtNum(n: number, decimals = 0): string {
 }
 
 function fmtHrs(h: number): string {
-  if (h <= 0) return "—";
+  if (h <= 0) return "-";
   if (h < 1) return `${Math.round(h * 60)}m`;
   if (h < 24) return `${h.toFixed(1)}h`;
   return `${(h / 24).toFixed(1)}d`;
 }
 
 function fmtMins(m: number): string {
-  if (m <= 0) return "—";
+  if (m <= 0) return "-";
   if (m < 60) return `${Math.round(m)}m`;
   return `${(m / 60).toFixed(1)}h`;
 }
@@ -323,7 +323,7 @@ function SnippetTable({ data }: { data: SnippetPerformance[] }) {
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                   </span>
-                ) : "—"}
+                ) : "-"}
               </td>
               <td className="py-2.5 pl-2 pr-1 text-right">
                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${s.status === "published" ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"}`}>
@@ -653,7 +653,7 @@ export default function AnalyticsPage() {
   const [tab, setTab] = useState<Tab>("Overview");
   const { data, isLoading, error } = useAnalytics(days);
 
-  // ── Derived values — ALL hooks must be called before any early return ──────
+  // ── Derived values - ALL hooks must be called before any early return ──────
 
   const totalCommits = useMemo(
     () => (data?.activity ?? []).reduce((s, d) => s + d.count, 0),
@@ -688,7 +688,7 @@ export default function AnalyticsPage() {
 
   // ── Early returns AFTER all hooks ─────────────────────────────────────────
 
-  // Repos/Teams tabs have their own loading — don't block on overview data
+  // Repos/Teams tabs have their own loading - don't block on overview data
   const overviewLoading = isLoading && (tab === "Overview" || tab === "Code" || tab === "Marketplace" || tab === "Collaboration");
 
   if (overviewLoading) return <Skeleton />;
@@ -769,7 +769,7 @@ export default function AnalyticsPage() {
               <StatCard label="Avg Issue Close"  value={fmtHrs(data.issues.avgCloseHrs)}         sub="issues"                                 icon={Icon.clock}    accent="amber"   />
             </div>
 
-            <Section title="Contribution Activity" subtitle="Daily commit history — last 365 days">
+            <Section title="Contribution Activity" subtitle="Daily commit history - last 365 days">
               <ContributionGraph streak={streak} />
             </Section>
           </div>
@@ -852,7 +852,7 @@ export default function AnalyticsPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-white tracking-tight">
-                    {data.marketplace.avgRating > 0 ? `${data.marketplace.avgRating.toFixed(1)} ★` : "—"}
+                    {data.marketplace.avgRating > 0 ? `${data.marketplace.avgRating.toFixed(1)} ★` : "-"}
                   </p>
                   <p className="text-[11px] text-white/40 mt-0.5 uppercase tracking-widest">Avg Rating</p>
                 </div>

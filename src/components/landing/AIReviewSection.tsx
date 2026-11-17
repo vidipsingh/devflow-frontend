@@ -46,7 +46,7 @@ export default function AIReviewSection() {
                     <path d="M5.5 1l1.1 2.2L9 3.8l-1.83 1.78.43 2.52L5.5 6.9 3.4 8.1l.43-2.52L2 3.8l2.4-.6L5.5 1Z" fill="white" />
                   </svg>
                 </div>
-                <span className="text-sm font-semibold text-white">AI Review — PR #42</span>
+                <span className="text-sm font-semibold text-white">AI Review - PR #42</span>
               </div>
               <span className="badge-pill bg-amber-500/15 border border-amber-500/25 text-amber-400 text-[10px]">
                 2 issues found
@@ -98,7 +98,7 @@ export default function AIReviewSection() {
               <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/[0.07] border border-amber-500/20 mb-4">
                 <span className="text-amber-400 text-base flex-shrink-0 mt-0.5">⚠️</span>
                 <div>
-                  <p className="text-xs font-semibold text-amber-300 mb-1">Missing context timeout — High severity</p>
+                  <p className="text-xs font-semibold text-amber-300 mb-1">Missing context timeout - High severity</p>
                   <p className="text-xs text-[#a1a1aa] leading-relaxed">
                     <code className="text-amber-300/80 font-mono bg-amber-500/10 px-1 rounded">processPayment</code>{" "}
                     can run indefinitely if the external gateway is slow. Add a timeout context to prevent goroutine leaks and resource exhaustion.

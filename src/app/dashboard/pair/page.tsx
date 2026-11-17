@@ -52,7 +52,7 @@ function SessionCard({ session, onEnd }: { session: PairSession; onEnd: (id: str
             {session.filePath || "Untitled file"}
           </h3>
           <p className="text-xs text-[#71717a] mt-0.5 truncate">
-            repo: {session.repoId || "—"}
+            repo: {session.repoId || "-"}
           </p>
         </div>
         {/* Participants */}

@@ -18,7 +18,7 @@ export default function CallbackHandler() {
       const messages: Record<string, string> = {
         oauth_cancelled: "OAuth sign-in was cancelled.",
         oauth_failed:    "OAuth sign-in failed. Please try again.",
-        no_token:        "Authentication failed — no token received.",
+        no_token:        "Authentication failed - no token received.",
       };
       setMsg(messages[error] ?? "Authentication failed.");
       setStatus("error");

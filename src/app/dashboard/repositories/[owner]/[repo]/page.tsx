@@ -16,7 +16,7 @@ function getToken() {
   catch { return null; }
 }
 
-// ─── Decode current user id from JWT (no verify — display only) ───────────────
+// ─── Decode current user id from JWT (no verify - display only) ───────────────
 function currentUserId(): string | null {
   try {
     const token = getToken();
@@ -180,7 +180,7 @@ export default function RepositoryDetailPage({
         `/api/v1/repositories/${repo.slug}/fork`,
         { method: "POST", body: JSON.stringify({}) }
       );
-      // Use fullName ("owner/slug") when available — navigate to owner/repo URL.
+      // Use fullName ("owner/slug") when available - navigate to owner/repo URL.
       // Use window.location.href (full reload) so the page always remounts.
       const fullName = json.data?.fullName;
       const dest = fullName ?? json.data?.slug ?? repo.slug;
@@ -268,7 +268,7 @@ export default function RepositoryDetailPage({
   useEffect(() => { fetchStarStatus(); }, [fetchStarStatus]);
 
   const handleStar = useCallback(async () => {
-    // Once starred, disable — same as GitHub (no unstar from this button)
+    // Once starred, disable - same as GitHub (no unstar from this button)
     if (!repo || isStarring) return;
     const nextStarred = !starred;
     const delta = nextStarred ? 1 : -1;
@@ -364,7 +364,7 @@ export default function RepositoryDetailPage({
           )}
 
           {/* ── "Compare & pull request" banner (fork → upstream) ──────────
-               Shown when THIS repo is a fork — one click opens a PR against
+               Shown when THIS repo is a fork - one click opens a PR against
                the upstream repo with everything pre-filled.                  */}
           {repo.isFork && repo.forkedFromOwner && repo.forkedFromSlug && commits.length > 0 && isOwner &&
             !prs.some((p) => p.state === "open" && p.headBranch === currentBranch) && (
@@ -375,7 +375,7 @@ export default function RepositoryDetailPage({
                 </svg>
                 <span className="text-amber-200/90 truncate">
                   <span className="font-medium">{currentBranch}</span>
-                  &nbsp;has commits — open a pull request to merge into&nbsp;
+                  &nbsp;has commits - open a pull request to merge into&nbsp;
                   <span className="font-medium">{repo.forkedFromOwner}/{repo.forkedFromSlug}</span>
                 </span>
               </div>
@@ -482,7 +482,7 @@ export default function RepositoryDetailPage({
 
             {/* Stats + interactive star + fork */}
             <div className="flex items-center gap-3 shrink-0 flex-wrap">
-              {/* Fork button — visible only when we don't own the repo */}
+              {/* Fork button - visible only when we don't own the repo */}
               {!isOwner && (
                 <button
                   onClick={handleFork}
@@ -501,7 +501,7 @@ export default function RepositoryDetailPage({
                 </button>
               )}
 
-              {/* Star button — GitHub style */}
+              {/* Star button - GitHub style */}
               <button
                 onClick={handleStar}
                 disabled={isStarring}
@@ -723,7 +723,7 @@ export default function RepositoryDetailPage({
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {/* Edit button — navigate to in-browser editor */}
+                      {/* Edit button - navigate to in-browser editor */}
                       <button
                         onClick={() => {
                           const q = new URLSearchParams({ path: activeBlob.path, branch: currentBranch });

@@ -131,7 +131,7 @@ export function EditRepoModal({
                 onChange={(e) => setLanguage(e.target.value)}
                 className="w-full bg-[#111117] border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-white/70 text-sm focus:outline-none focus:border-indigo-400/40 appearance-none cursor-pointer transition-all"
               >
-                <option value="">— No language —</option>
+                <option value="">- No language -</option>
                 {LANGUAGES.map((l) => (
                   <option key={l} value={l}>{l}</option>
                 ))}
@@ -183,7 +183,7 @@ export function EditRepoModal({
             </div>
           </div>
 
-          {/* Topics — tag input */}
+          {/* Topics - tag input */}
           <div className="space-y-2">
             <label className="text-white/50 text-xs font-medium uppercase tracking-widest">
               Topics <span className="text-white/20 normal-case font-normal">({topicTags.length}/10)</span>

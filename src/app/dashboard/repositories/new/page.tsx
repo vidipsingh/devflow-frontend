@@ -44,7 +44,7 @@ export default function NewRepositoryPage() {
     });
 
     if (result) {
-      // result.fullName is "owner/slug" — maps directly to [owner]/[repo] route
+      // result.fullName is "owner/slug" - maps directly to [owner]/[repo] route
       const dest = result.fullName ?? result.slug;
       router.push(`/dashboard/repositories/${dest}`);
     }

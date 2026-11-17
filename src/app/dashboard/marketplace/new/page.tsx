@@ -86,7 +86,7 @@ export default function NewSnippetPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Publish a Snippet</h1>
-        <p className="text-sm text-white/40 mt-1">Share your code with the community. Starts as draft — publish when ready.</p>
+        <p className="text-sm text-white/40 mt-1">Share your code with the community. Starts as draft - publish when ready.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

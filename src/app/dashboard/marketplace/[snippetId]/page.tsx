@@ -134,7 +134,7 @@ export default function SnippetDetailPage() {
       setActiveTab("preview");
       return data;
     } catch (e) {
-      // Swallow 402 "payment required" silently — not purchased yet.
+      // Swallow 402 "payment required" silently - not purchased yet.
       const msg = e instanceof Error ? e.message : "";
       const isPaymentRequired = msg.includes("purchase this snippet") || msg.includes("402");
       if (!isPaymentRequired) {
@@ -144,7 +144,7 @@ export default function SnippetDetailPage() {
     }
   }, [snippetId]);
 
-  // Called by the Download/Re-download button — fetches code AND saves a file to disk.
+  // Called by the Download/Re-download button - fetches code AND saves a file to disk.
   const handleDownload = useCallback(async () => {
     setDownloading(true);
     try {
@@ -223,7 +223,7 @@ export default function SnippetDetailPage() {
     }
   }, [fetchCode]);
 
-  // Silent variant — only fetches into state, no file-save prompt.
+  // Silent variant - only fetches into state, no file-save prompt.
   // Used by: auto-check on mount, post-payment verify.
   const handleSilentDownload = useCallback(async () => {
     await fetchCode();
@@ -231,7 +231,7 @@ export default function SnippetDetailPage() {
 
   // On mount (or after snippet loads), silently probe whether the user has already
   // purchased this paid snippet. The backend returns 200+code if purchased, 402 if not.
-  // 402 is swallowed silently — no error shown, no file prompt.
+  // 402 is swallowed silently - no error shown, no file prompt.
   // This makes purchase state persist across page refreshes without a dedicated API call.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -278,7 +278,7 @@ export default function SnippetDetailPage() {
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
             });
-            // Payment verified — silently fetch code so the UI switches from
+            // Payment verified - silently fetch code so the UI switches from
             // "Buy" to the code viewer. User can then click Download to save.
             // Also refetch snippet metadata (stats, etc.) in parallel.
             await Promise.all([handleSilentDownload(), refetch()]);
@@ -464,7 +464,7 @@ export default function SnippetDetailPage() {
                 {downloading ? "Loading…" : hasCode ? "Re-download" : isPaid ? "Download" : "Download Free"}
               </button>
             ) : (
-              /* Paid snippet — not yet purchased */
+              /* Paid snippet - not yet purchased */
               <button
                 onClick={handlePurchase}
                 disabled={purchasing}
@@ -634,7 +634,7 @@ export default function SnippetDetailPage() {
           {/* Review list */}
           {reviews.length === 0 ? (
             <div className="text-center py-12 text-white/30 text-sm">
-              No reviews yet — be the first to review this snippet.
+              No reviews yet - be the first to review this snippet.
             </div>
           ) : (
             <div className="space-y-3">

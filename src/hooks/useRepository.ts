@@ -15,7 +15,7 @@ export interface Repository {
   id: string;
   name: string;
   slug: string;
-  /** "ownerUsername/slug" — used to build owner~slug nav URLs */
+  /** "ownerUsername/slug" - used to build owner~slug nav URLs */
   fullName: string;
   description: string;
   visibility: RepoVisibility;
@@ -122,7 +122,7 @@ function mapAPIRepo(r: APIRepository): Repository {
     isForked: r.isFork ?? false,
     isPinned: r.isPinned ?? false,
     topics: r.topics ?? [],
-    // ciStatus is not yet in backend — default for now
+    // ciStatus is not yet in backend - default for now
     ciStatus: "none",
   };
 }
@@ -171,7 +171,7 @@ export function useRepository(): UseRepositoryReturn {
     fetchRepos();
   }, [fetchRepos]);
 
-  // togglePin — optimistically updates local state, then persists to backend
+  // togglePin - optimistically updates local state, then persists to backend
   const togglePin = useCallback(async (id: string) => {
     const repo = repositories.find((r) => r.id === id);
     if (!repo) return;
@@ -223,7 +223,7 @@ export function useRepository(): UseRepositoryReturn {
     list.sort((a, b) => {
       if (sortKey === "stars") return b.stars - a.stars;
       if (sortKey === "name") return a.name.localeCompare(b.name);
-      return 0; // "updated" — server already returns sorted by updatedAt desc
+      return 0; // "updated" - server already returns sorted by updatedAt desc
     });
 
     return list;

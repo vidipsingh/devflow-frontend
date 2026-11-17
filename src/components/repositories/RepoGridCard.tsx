@@ -56,7 +56,7 @@ export default function RepoGridCard({ repo, isPinned, onTogglePin, onEdit, onDe
 
       {/* Main content */}
       <div className="flex flex-col gap-3 p-5 flex-1">
-        {/* Header row — name + visibility badge */}
+        {/* Header row - name + visibility badge */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <div
@@ -93,7 +93,7 @@ export default function RepoGridCard({ repo, isPinned, onTogglePin, onEdit, onDe
             </div>
           </div>
 
-          {/* Pin button — always visible */}
+          {/* Pin button - always visible */}
           <button
             onClick={(e) => { e.stopPropagation(); onTogglePin(repo.id); }}
             title={isPinned ? "Unpin" : "Pin"}
@@ -147,7 +147,7 @@ export default function RepoGridCard({ repo, isPinned, onTogglePin, onEdit, onDe
         </div>
       </div>
 
-      {/* Action footer — always visible */}
+      {/* Action footer - always visible */}
       <div className="flex items-center justify-between px-4 py-2.5 border-t border-white/6 bg-white/[0.015]">
         {/* Left: updated */}
         <span className="text-[11px] text-white/25">Updated {repo.lastUpdated}</span>

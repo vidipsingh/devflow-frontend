@@ -15,7 +15,7 @@ interface Issue {
   id: string;
   number: number;
   repoSlug: string;
-  repoFullName?: string;  // owner~repo from backend — convert ~ → / for hrefs
+  repoFullName?: string;  // owner~repo from backend - convert ~ → / for hrefs
   title: string;
   state: "open" | "closed";
   authorName: string;
@@ -148,7 +148,7 @@ export default function GlobalIssuesPage() {
   const [openCount, setOpenCount] = useState<number | null>(null);
   const [closedCount, setClosedCount] = useState<number | null>(null);
 
-  // Fetch all repos once — used for the repo filter dropdown
+  // Fetch all repos once - used for the repo filter dropdown
   useEffect(() => {
     apiFetch<{ success: boolean; data: { repositories: Repo[] } }>("/api/v1/repositories")
       .then((json) => {
@@ -180,7 +180,7 @@ export default function GlobalIssuesPage() {
     setLoading(true);
     setError(null);
     try {
-      // Single backend call — server aggregates across all repos
+      // Single backend call - server aggregates across all repos
       const repoSlug = selectedRepo === "all" ? "" : selectedRepo;
       const params = new URLSearchParams({
         state: tab,
@@ -255,7 +255,7 @@ export default function GlobalIssuesPage() {
             </svg>
           </div>
 
-          {/* Label dropdown — always visible; options populate after repos load */}
+          {/* Label dropdown - always visible; options populate after repos load */}
           <div className="relative flex items-center gap-2">
             <svg className="w-3.5 h-3.5 text-white/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -297,7 +297,7 @@ export default function GlobalIssuesPage() {
 
         {/* ── Issues list ────────────────────────────────────────────────── */}
         <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0d14]">
-          {/* Tab bar — counts always visible for both tabs */}
+          {/* Tab bar - counts always visible for both tabs */}
           <div className="flex items-center gap-1 px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
             <button
               onClick={() => { setTab("open"); setPage(1); }}

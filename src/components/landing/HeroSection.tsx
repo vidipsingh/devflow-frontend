@@ -1,8 +1,58 @@
 
+"use client";
+
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { FaUser } from "react-icons/fa";
 
+// ─── Animated counter ─────────────────────────────────────────────────────────
+function CountUp({ target, duration = 1800 }: { target: number; duration?: number }) {
+  const [display, setDisplay] = useState(0);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (target === 0) return;
+    const start = performance.now();
+    const from = 0;
+
+    function tick(now: number) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(from + (target - from) * eased));
+      if (progress < 1) rafRef.current = requestAnimationFrame(tick);
+    }
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [target, duration]);
+
+  if (target >= 1000) {
+    // e.g. 2400 → "2,400+"
+    return <>{display.toLocaleString("en-IN")}+</>;
+  }
+  return <>{display}+</>;
+}
+
 export default function HeroSection() {
+  const [userCount, setUserCount] = useState<number>(0);
+  const [countReady, setCountReady] = useState(false);
+
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_URL ?? "";
+    fetch(`${API}/api/v1/stats/users`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((res: { data?: { count?: number; total?: number }; count?: number; total?: number }) => {
+        // api.OK wraps payload as { success, data: { count } }
+        const inner = res.data ?? res;
+        const n = (inner.count ?? inner.total ?? 0) as number;
+        setUserCount(n > 0 ? n : 2400);
+      })
+      .catch(() => setUserCount(2400))
+      .finally(() => setCountReady(true));
+  }, []);
+
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-16">
       <div className="absolute inset-0 hero-grid opacity-60" />
@@ -23,7 +73,7 @@ export default function HeroSection() {
         </h1>
 
         <p className="max-w-2xl mx-auto text-lg sm:text-xl text-[#a1a1aa] leading-relaxed mb-10 animate-fade-in-up delay-200">
-          DevFlow is the next-generation developer platform — Real-time pair
+          DevFlow is the next-generation developer platform - Real-time pair
           programming, gamified contributions, and a snippet marketplace. Ship faster. Ship better.
         </p>
 
@@ -54,7 +104,9 @@ export default function HeroSection() {
                 )
                 )}
             </div>
-            <span>2,400+ developers signed up</span>
+            <span>
+              {countReady ? <CountUp target={userCount} /> : "2,400+"} developers signed up
+            </span>
          </div>
           <span className="hidden sm:block text-[#2a2a35]">•</span>
           <div className="flex items-center gap-1.5">

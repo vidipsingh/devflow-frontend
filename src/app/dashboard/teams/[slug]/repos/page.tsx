@@ -136,7 +136,7 @@ function AddRepoModal({
         ) : (
           <div className="mb-4 space-y-2">
             <label className="text-xs text-white/50">Repository</label>
-            {/* Custom dropdown — avoids native <select> styling issues */}
+            {/* Custom dropdown - avoids native <select> styling issues */}
             <div className="relative">
               <button
                 type="button"

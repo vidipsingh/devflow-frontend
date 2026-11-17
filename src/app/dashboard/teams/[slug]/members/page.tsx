@@ -158,7 +158,7 @@ function InviteModal({ slug, onClose, onSuccess }: InviteModalProps) {
           />
         </div>
 
-        <div className="text-center text-xs text-white/25">— or —</div>
+        <div className="text-center text-xs text-white/25">- or -</div>
 
         <div className="space-y-2">
           <label className="text-xs text-white/50">Email</label>
@@ -269,7 +269,7 @@ export default function TeamMembersPage({ params }: PageProps) {
   const [loading, setLoading]   = useState(true);
   const [msg, setMsg]           = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
-  // Server-confirmed role — no localStorage matching
+  // Server-confirmed role - no localStorage matching
   const [myRole, setMyRole]     = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     type: "remove" | "ban" | "unban";
@@ -542,7 +542,7 @@ export default function TeamMembersPage({ params }: PageProps) {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm text-white/80">
-                              {inv.inviteeEmail || (inv.inviteeId ? `User #${inv.inviteeId.slice(-6)}` : "—")}
+                              {inv.inviteeEmail || (inv.inviteeId ? `User #${inv.inviteeId.slice(-6)}` : "-")}
                             </span>
                             <RoleBadge role={inv.role} />
                           </div>

@@ -5,7 +5,7 @@ import { apiFetch, getToken } from "@/lib/apiFetch";
 
 const WS_BASE = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/^http/, "ws");
 
-/** Parse userId + userName from JWT synchronously — avoids useEffect race */
+/** Parse userId + userName from JWT synchronously - avoids useEffect race */
 function parseJwt(): { userId: string; userName: string } {
   try {
     const token = getToken();
@@ -179,7 +179,7 @@ export function useReviewConference({ sessionId, enabled }: UseReviewConferenceO
   const startLocalMedia = useCallback(async (): Promise<MediaStream> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      // Disable both tracks immediately — user unmutes intentionally
+      // Disable both tracks immediately - user unmutes intentionally
       stream.getAudioTracks().forEach(t => { t.enabled = false; });
       stream.getVideoTracks().forEach(t => { t.enabled = false; });
       localRef.current = stream;
@@ -368,7 +368,7 @@ export function useReviewConference({ sessionId, enabled }: UseReviewConferenceO
 
         switch (msg.type) {
 
-          // We just joined — server gives us the current participant list.
+          // We just joined - server gives us the current participant list.
           // We (the newcomer) create the offer toward every existing peer.
           case "joined": {
             console.log(`Joined event, participants:`, msg.participants);
@@ -390,7 +390,7 @@ export function useReviewConference({ sessionId, enabled }: UseReviewConferenceO
             break;
           }
 
-          // An existing peer just joined — they will send us an offer shortly.
+          // An existing peer just joined - they will send us an offer shortly.
           // Pre-register tile so it shows up immediately.
           case "peer-joined": {
             if (msg.from === myUserId) break;
@@ -408,7 +408,7 @@ export function useReviewConference({ sessionId, enabled }: UseReviewConferenceO
             break;
           }
 
-          // Received SDP offer from a peer — answer it
+          // Received SDP offer from a peer - answer it
           case "offer": {
             if (!msg.payload) {
               console.warn('Received offer without payload');

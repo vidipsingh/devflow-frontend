@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMyPurchases } from "@/hooks/useMarketplace";
 
 function formatDate(iso: string) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso).toLocaleDateString("en-IN", {
     day: "2-digit", month: "short", year: "numeric",
   });

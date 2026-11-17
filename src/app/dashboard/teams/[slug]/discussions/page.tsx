@@ -243,7 +243,7 @@ export default function TeamDiscussionsPage({ params }: PageProps) {
 
   async function handleCreate(title: string, body: string) {
     await createDiscussion(slug, title, body);
-    // Don't optimistically add to state — the WS new_discussion event fires
+    // Don't optimistically add to state - the WS new_discussion event fires
     // for all clients (including the creator) and is the single source of truth.
     setMsg("Discussion created!");
     setTimeout(() => setMsg(null), 3000);

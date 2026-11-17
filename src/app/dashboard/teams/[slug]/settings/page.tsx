@@ -179,7 +179,7 @@ export default function TeamSettingsPage({ params }: PageProps) {
   }, [loading]);
 
   // ── Auth ────────────────────────────────────────────────────────────────────
-  // Decode userId and username directly from the JWT — this is the only auth
+  // Decode userId and username directly from the JWT - this is the only auth
   // value reliably stored in localStorage (as "devflow_token").  The app never
   // writes a "devflow_user" key, so reading it always returns null.
   const { myUserId, myUsername } = (() => {
@@ -534,9 +534,9 @@ export default function TeamSettingsPage({ params }: PageProps) {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-white/70">Visibility</label>
                   <select value={visibility} onChange={e => setVisibility(e.target.value)} className={fieldCls}>
-                    <option value="public"  className="bg-[#0d0d14]">Public — anyone can find this team</option>
-                    <option value="private" className="bg-[#0d0d14]">Private — only members can see</option>
-                    <option value="secret"  className="bg-[#0d0d14]">Secret — hidden from all listings</option>
+                    <option value="public"  className="bg-[#0d0d14]">Public - anyone can find this team</option>
+                    <option value="private" className="bg-[#0d0d14]">Private - only members can see</option>
+                    <option value="secret"  className="bg-[#0d0d14]">Secret - hidden from all listings</option>
                   </select>
                   <p className="text-xs text-white/30 mt-1">
                     {visibility === "public"  && "The team name and description are visible to everyone."}
@@ -548,9 +548,9 @@ export default function TeamSettingsPage({ params }: PageProps) {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-white/70">Join Policy</label>
                   <select value={joinPolicy} onChange={e => setJoinPolicy(e.target.value)} className={fieldCls}>
-                    <option value="open"        className="bg-[#0d0d14]">Open — anyone can join instantly</option>
-                    <option value="request"     className="bg-[#0d0d14]">By Request — admins must approve</option>
-                    <option value="invite_only" className="bg-[#0d0d14]">Invite Only — members must be invited</option>
+                    <option value="open"        className="bg-[#0d0d14]">Open - anyone can join instantly</option>
+                    <option value="request"     className="bg-[#0d0d14]">By Request - admins must approve</option>
+                    <option value="invite_only" className="bg-[#0d0d14]">Invite Only - members must be invited</option>
                   </select>
                   <p className="text-xs text-white/30 mt-1">
                     {joinPolicy === "open"        && "Any logged-in user can join without approval."}
@@ -681,7 +681,7 @@ export default function TeamSettingsPage({ params }: PageProps) {
 
               <div className="space-y-0 divide-y divide-rose-500/10">
 
-                {/* Leave Team — available to all non-owner members */}
+                {/* Leave Team - available to all non-owner members */}
                 {!isOwner && me && (
                   <div className="py-4">
                     <div className="flex items-start justify-between gap-4">
@@ -702,7 +702,7 @@ export default function TeamSettingsPage({ params }: PageProps) {
                   </div>
                 )}
 
-                {/* Transfer Ownership — owner only */}
+                {/* Transfer Ownership - owner only */}
                 {isOwner && (
                   <div className="py-4">
                     <p className="text-sm font-medium text-white/80 mb-1">Transfer Ownership</p>
@@ -728,7 +728,7 @@ export default function TeamSettingsPage({ params }: PageProps) {
                   </div>
                 )}
 
-                {/* Delete Team — owner only */}
+                {/* Delete Team - owner only */}
                 {isOwner && (
                   <div className="pt-4">
                     <p className="text-sm font-medium text-white/80 mb-1">Delete Team</p>

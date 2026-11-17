@@ -26,11 +26,11 @@ function clearTokenAndRedirect(): never {
   try {
     localStorage.removeItem("devflow_token");
   } catch { /* ignore */ }
-  // replace() keeps the history stack clean — the login page replaces the
+  // replace() keeps the history stack clean - the login page replaces the
   // current entry so pressing Back doesn't bounce the user back to a broken page.
   window.location.replace("/login");
   // Throw so TypeScript knows this path never returns a value.
-  throw new Error("Session expired — redirecting to login");
+  throw new Error("Session expired - redirecting to login");
 }
 
 /**

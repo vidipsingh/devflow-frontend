@@ -58,7 +58,7 @@ export default async function MarketplaceSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <div className="inline-flex badge-pill bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 mb-4">
-            💰 Snippet Marketplace
+            Snippet Marketplace
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight mb-4">
             Buy less. Build more.
@@ -68,7 +68,7 @@ export default async function MarketplaceSection() {
           </p>
         </div>
 
-        {/* Search bar (UI only — search is a client feature) */}
+        {/* Search bar (UI only - search is a client feature) */}
         <div className="max-w-2xl mx-auto mb-10">
           <div className="relative flex items-center">
             <svg className="absolute left-4 text-[#52525b] w-4 h-4" viewBox="0 0 16 16" fill="none">

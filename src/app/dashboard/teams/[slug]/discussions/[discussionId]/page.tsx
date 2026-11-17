@@ -399,7 +399,7 @@ export default function DiscussionDetailPage({ params }: PageProps) {
     setSending(true);
     try {
       await addReply(slug, discussionId, replyText.trim());
-      // Don't optimistically add to state here — the WS new_reply event
+      // Don't optimistically add to state here - the WS new_reply event
       // will fire for all clients including the sender, so we let that
       // be the single source of truth to avoid double-rendering.
       setReplyText("");
@@ -596,7 +596,7 @@ export default function DiscussionDetailPage({ params }: PageProps) {
                 <span className="text-white/15">·</span>
                 <span className="text-xs text-white/30">{discussion.replyCount} {discussion.replyCount === 1 ? "reply" : "replies"}</span>
               </div>
-              {/* Reaction bar — discussion thread */}
+              {/* Reaction bar - discussion thread */}
               <ReactionBar
                 reactions={discussion.reactions ?? { thumbsUp: 0, heart: 0, hooray: 0, rocket: 0, eyes: 0, laugh: 0 }}
                 myReactions={myDiscussionReactions}
@@ -632,7 +632,7 @@ export default function DiscussionDetailPage({ params }: PageProps) {
         {/* Replies */}
         <div className="flex-1 space-y-3 mb-6">
           {replies.length === 0 ? (
-            <p className="text-center text-white/25 text-sm py-8">No replies yet — be the first to reply!</p>
+            <p className="text-center text-white/25 text-sm py-8">No replies yet - be the first to reply!</p>
           ) : (
             replies.map((r, idx) => {
               const isMe = myUsername === r.authorName;
@@ -652,7 +652,7 @@ export default function DiscussionDetailPage({ params }: PageProps) {
                     }`}>
                       {r.body}
                     </div>
-                    {/* Reaction bar — reply */}
+                    {/* Reaction bar - reply */}
                     <ReactionBar
                       reactions={r.reactions ?? { thumbsUp: 0, heart: 0, hooray: 0, rocket: 0, eyes: 0, laugh: 0 }}
                       myReactions={myReplyReactions.get(r.id) ?? new Set()}

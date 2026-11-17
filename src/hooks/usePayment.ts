@@ -89,7 +89,7 @@ export function usePayment(): UsePaymentReturn {
           return;
         }
 
-        // Step 1 — Create order on backend (apiFetch handles 401 → redirect)
+        // Step 1 - Create order on backend (apiFetch handles 401 → redirect)
         const orderJson = await apiFetch<{ data: { orderId: string; amount: number; currency: string; keyId: string } }>(
           "/api/v1/payments/orders",
           { method: "POST", body: JSON.stringify({ planKey }) }
@@ -97,7 +97,7 @@ export function usePayment(): UsePaymentReturn {
         const order = orderJson.data;
         // order = { orderId, amount, currency, keyId }
 
-        // Step 2 — Open Razorpay checkout
+        // Step 2 - Open Razorpay checkout
         await new Promise<void>((resolve, reject) => {
           const rzp = new window.Razorpay({
             key: order.keyId,
@@ -105,21 +105,21 @@ export function usePayment(): UsePaymentReturn {
             currency: order.currency,     // "INR"
             order_id: order.orderId,
             name: "DevFlow",
-            description: planKey === "pro" ? "Pro Plan — ₹999/month" : "Team Plan — ₹2999/month",
+            description: planKey === "pro" ? "Pro Plan - ₹999/month" : "Team Plan - ₹2999/month",
             image: "/logo.png",           // optional, shows in checkout modal
             prefill: {
               name: userName,
               email: userEmail,
             },
             theme: {
-              color: "#6366f1",           // indigo — matches the UI
+              color: "#6366f1",           // indigo - matches the UI
             },
             handler: async (response: {
               razorpay_order_id: string;
               razorpay_payment_id: string;
               razorpay_signature: string;
             }) => {
-              // Step 3 — Verify on backend
+              // Step 3 - Verify on backend
               try {
                 const verifyData = await apiFetch<{ message?: string }>(
                   "/api/v1/payments/verify",

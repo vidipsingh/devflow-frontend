@@ -98,7 +98,7 @@ export interface TeamRepo {
   repoId: string;
   repoName: string;
   repoSlug: string;
-  repoFullName: string; // e.g. "owner/repo-name" — use for /dashboard/repositories/:fullName
+  repoFullName: string; // e.g. "owner/repo-name" - use for /dashboard/repositories/:fullName
   visibility: string;
   addedBy: string;
   addedAt: string;
@@ -338,10 +338,10 @@ export function useTeam(slug: string) {
         listTeamMembers(slug, "", 100, 0).catch(() => [] as TeamMember[]),
       ]);
       setTeam(t);
-      // Find caller's own membership — we don't have callerID here so we leave
+      // Find caller's own membership - we don't have callerID here so we leave
       // the discovery to the page via username from auth context.
       setMyMembership(members[0] ?? null); // placeholder; page overrides
-      // Expose full members via a separate key isn't needed — pages call listTeamMembers directly
+      // Expose full members via a separate key isn't needed - pages call listTeamMembers directly
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load team");
     } finally {

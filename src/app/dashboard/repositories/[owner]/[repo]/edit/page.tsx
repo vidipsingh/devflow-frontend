@@ -74,7 +74,7 @@ export default function EditFilePage({
   useEffect(() => {
     if (!filePath || !currentBranch) return;
     openBlob(filePath).then(() => {
-      // activeBlob isn't exposed directly here — we re-fetch via plain fetch
+      // activeBlob isn't exposed directly here - we re-fetch via plain fetch
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filePath, currentBranch]);
@@ -117,7 +117,7 @@ export default function EditFilePage({
     }
   }, [uploadSuccess, saved, name, filePath, branch, router]);
 
-  // ── Tab key handler — inserts two spaces ──────────────────────────────────
+  // ── Tab key handler - inserts two spaces ──────────────────────────────────
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Tab") {
@@ -304,7 +304,7 @@ export default function EditFilePage({
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
-          Committed successfully — redirecting…
+          Committed successfully - redirecting…
         </div>
       )}
       {uploadError && (

@@ -10,7 +10,7 @@ interface LayoutProps {
 }
 
 /**
- * Team slug layout — wraps all sub-pages (discussions, members, repos, etc.)
+ * Team slug layout - wraps all sub-pages (discussions, members, repos, etc.)
  * with a single DiscussionSocketProvider so the WebSocket connection is shared
  * and survives navigation between the list and thread pages.
  */

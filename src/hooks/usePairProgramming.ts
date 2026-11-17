@@ -90,12 +90,12 @@ function transformOp(op1: OTOperation, op2: OTOperation): OTOperation {
     const op2End = op2.index + op2.delete;
 
     if (op1End <= op2.index) {
-      // op1 entirely before op2 — shift op2 left
+      // op1 entirely before op2 - shift op2 left
       result.index -= op1.delete;
     } else if (op1.index >= op2End) {
-      // op1 entirely after op2 — no change
+      // op1 entirely after op2 - no change
     } else {
-      // Overlapping — shrink op2's delete by the overlap
+      // Overlapping - shrink op2's delete by the overlap
       const overlapStart = Math.max(op1.index, op2.index);
       const overlapEnd   = Math.min(op1End, op2End);
       const overlap      = overlapEnd - overlapStart;
@@ -251,7 +251,7 @@ interface UsePairEditorReturn {
   connected: boolean;
   remoteCursors: RemoteCursor[];
   participants: ParticipantInfo[];
-  /** Synchronous mirror of `document` — always current, use in event handlers */
+  /** Synchronous mirror of `document` - always current, use in event handlers */
   docRef: React.MutableRefObject<string>;
   sendInsert: (index: number, text: string) => void;
   sendDelete: (index: number, count: number) => void;
@@ -291,7 +291,7 @@ export function usePairEditor({
   // Track if initial document has been set
   const initializedRef = useRef(false);
 
-  // When initialDocument arrives async (after session fetch), sync it once — only
+  // When initialDocument arrives async (after session fetch), sync it once - only
   // if the WS hasn't already overridden the doc via a "state" message
   useEffect(() => {
     if (!initializedRef.current && initialDocument !== undefined) {
@@ -323,7 +323,7 @@ export function usePairEditor({
       try { msg = JSON.parse(evt.data as string); } catch { return; }
 
       if (msg.type === "state") {
-        // Authoritative server state — reset everything
+        // Authoritative server state - reset everything
         const newDoc = msg.document ?? "";
         docRef.current = newDoc;
         setDoc(newDoc);
@@ -336,13 +336,13 @@ export function usePairEditor({
         initializedRef.current = true;
 
       } else if (msg.type === "ack") {
-        // Server ACK'd one of our ops — remove it from pending queue
+        // Server ACK'd one of our ops - remove it from pending queue
         pendingOpsRef.current = pendingOpsRef.current.filter(
           (op) => op.clientSeq !== msg.op.clientSeq
         );
         setVersion(msg.serverSeq);
         baseVersionRef.current = msg.serverSeq;
-        // Local doc already updated optimistically — nothing else to do
+        // Local doc already updated optimistically - nothing else to do
 
       } else if (msg.type === "op") {
         // Remote op from another user, already transformed by server.
@@ -397,8 +397,8 @@ export function usePairEditor({
   }, [sessionId]);
 
   /**
-   * Low-level send — pushes op to pendingOps and transmits over WS.
-   * Does NOT modify docRef — callers must do that first.
+   * Low-level send - pushes op to pendingOps and transmits over WS.
+   * Does NOT modify docRef - callers must do that first.
    */
   const sendOp = useCallback((op: OTOperation) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;

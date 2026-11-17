@@ -37,7 +37,7 @@ const testimonials = [
     stars: 5,
   },
   {
-    quote: "Switched from GitHub to DevFlow for the AI reviews. The AI integration is unreal — it understood our domain-specific patterns and flagged issues our linter never would.",
+    quote: "Switched from GitHub to DevFlow for the AI reviews. The AI integration is unreal - it understood our domain-specific patterns and flagged issues our linter never would.",
     name: "Rahul Verma",
     role: "Full-stack Developer",
     company: "SaaS Startup",

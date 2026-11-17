@@ -30,7 +30,7 @@ function VideoTile({
   cameraStream?: MediaStream | null;
   label:         string;
   color:         string;
-  /** Optional profile photo URL — shown in place of initials when provided */
+  /** Optional profile photo URL - shown in place of initials when provided */
   avatar?:       string;
   muted?:        boolean;
   audioMuted?:   boolean;
@@ -43,7 +43,7 @@ function VideoTile({
   const videoRef   = useRef<HTMLVideoElement>(null);
   const cameraRef  = useRef<HTMLVideoElement>(null);
 
-  // showVideo controls CSS visibility only — we ALWAYS attach the stream so audio plays
+  // showVideo controls CSS visibility only - we ALWAYS attach the stream so audio plays
   const showVideo = (!videoMuted || screenActive) && !!stream;
 
   useEffect(() => {
@@ -65,7 +65,7 @@ function VideoTile({
 
   const initials = label.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 
-  /** Renders a profile circle — avatar photo if available, otherwise coloured initials */
+  /** Renders a profile circle - avatar photo if available, otherwise coloured initials */
   function Avatar({ size }: { size: "large" | "small" | "pip" }) {
     const dims = size === "large" ? "w-24 h-24 text-3xl" : size === "small" ? "w-10 h-10 text-sm" : "w-8 h-8 text-xs";
     if (avatar) {
@@ -92,7 +92,7 @@ function VideoTile({
       onClick={onClick}
       className={`relative rounded-xl overflow-hidden bg-[#111118] border border-white/[0.07] aspect-video flex items-center justify-center ${onClick ? "cursor-pointer hover:border-white/20 transition-all" : ""}`}
     >
-      {/* Video element is ALWAYS rendered when stream exists — hiding via CSS so audio keeps playing */}
+      {/* Video element is ALWAYS rendered when stream exists - hiding via CSS so audio keeps playing */}
       {stream && (
         <video
           ref={videoRef}
@@ -105,7 +105,7 @@ function VideoTile({
       {/* Avatar shown when no video (camera muted or no stream) */}
       {!showVideo && <Avatar size={large ? "large" : "small"} />}
 
-      {/* GMeet-style camera PiP when screen sharing — always visible (avatar fallback when camera off) */}
+      {/* GMeet-style camera PiP when screen sharing - always visible (avatar fallback when camera off) */}
       {screenActive && large && (
         <div className="absolute bottom-12 right-3 w-24 h-14 rounded-lg overflow-hidden border-2 border-white/20 shadow-xl bg-[#0d0d16] flex items-center justify-center">
           {!videoMuted && cameraStream ? (
@@ -253,7 +253,7 @@ export default function ReviewSessionPage() {
     }
   }, [meta, hasJoined, router, prNum, repoName]);
 
-  // "View PR": keep call alive — just navigate; floating PiP takes over
+  // "View PR": keep call alive - just navigate; floating PiP takes over
   const handleViewPR = useCallback(() => {
     const prUrl = `/dashboard/repositories/${repoName}/pulls/${prNum}`;
     router.push(prUrl);
@@ -301,7 +301,7 @@ export default function ReviewSessionPage() {
               </p>
               <div className="mt-3 flex items-center justify-center gap-2 text-xs text-white/35">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                Mic &amp; camera start <strong className="text-white/55">muted</strong> — enable after joining
+                Mic &amp; camera start <strong className="text-white/55">muted</strong> - enable after joining
               </div>
               {prNum && repoName && (
                 <div className="mt-3 inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-3 py-1">
@@ -376,11 +376,11 @@ export default function ReviewSessionPage() {
           </div>
         </div>
 
-        {/* View PR — session stays alive via the floating miniplayer */}
+        {/* View PR - session stays alive via the floating miniplayer */}
         {prNum && repoName && (
           <button
             onClick={handleViewPR}
-            title="Navigate to PR — session stays alive in the miniplayer"
+            title="Navigate to PR - session stays alive in the miniplayer"
             className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] rounded-lg px-3 py-1.5 transition-all cursor-pointer"
           >
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">

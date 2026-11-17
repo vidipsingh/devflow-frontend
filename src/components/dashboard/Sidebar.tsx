@@ -251,21 +251,6 @@ export default function Sidebar({ user, openPRs = 0, openIssues = 0, unreadNotif
         ))}
       </nav>
 
-      {/* User strip */}
-      {!collapsed && (
-        <div className="flex-shrink-0 border-t border-white/[0.05] px-3 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className={`w-7 h-7 rounded-full ${user.avatarColor} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
-              {(user.name || user.username || "?")[0].toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-white truncate">{user.name}</p>
-              <p className="text-[10px] text-[#52525b] truncate">@{user.username}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed((v) => !v)}

@@ -91,14 +91,14 @@ interface APIRepo {
 }
 
 const MOCK_ACTIVITY: ActivityItem[] = [
-  { id: "a1", type: "pr_merged",  repo: "payment-service",   message: "Merged PR #42 — Add Stripe webhook handler",          time: "2m ago",   meta: "+240 −18"   },
-  { id: "a2", type: "review",     repo: "devflow-backend",   message: "AI reviewed PR #7 — Found 2 issues, 3 suggestions",   time: "18m ago",  meta: "✨ AI"       },
+  { id: "a1", type: "pr_merged",  repo: "payment-service",   message: "Merged PR #42 - Add Stripe webhook handler",          time: "2m ago",   meta: "+240 −18"   },
+  { id: "a2", type: "review",     repo: "devflow-backend",   message: "AI reviewed PR #7 - Found 2 issues, 3 suggestions",   time: "18m ago",  meta: "✨ AI"       },
   { id: "a3", type: "push",       repo: "devflow-frontend",  message: "Pushed 3 commits to feat/dashboard-ui",               time: "1h ago",   meta: "3 commits"  },
-  { id: "a4", type: "pr_opened",  repo: "cli-tools",         message: "Opened PR #12 — Refactor config loading",             time: "3h ago",   meta: "needs review"},
-  { id: "a5", type: "issue",      repo: "payment-service",   message: "Closed issue #88 — Race condition in checkout",       time: "5h ago",   meta: "#88"        },
+  { id: "a4", type: "pr_opened",  repo: "cli-tools",         message: "Opened PR #12 - Refactor config loading",             time: "3h ago",   meta: "needs review"},
+  { id: "a5", type: "issue",      repo: "payment-service",   message: "Closed issue #88 - Race condition in checkout",       time: "5h ago",   meta: "#88"        },
   { id: "a6", type: "badge",      repo: "",                  message: "Earned badge: ⚡ Fast Merger",                         time: "1d ago",   meta: "🏆"         },
   { id: "a7", type: "push",       repo: "auth-service",      message: "Pushed 7 commits to main",                           time: "1d ago",   meta: "7 commits"  },
-  { id: "a8", type: "pr_merged",  repo: "devflow-backend",   message: "Merged PR #3 — Add MongoDB Atlas integration",        time: "2d ago",   meta: "+580 −42"   },
+  { id: "a8", type: "pr_merged",  repo: "devflow-backend",   message: "Merged PR #3 - Add MongoDB Atlas integration",        time: "2d ago",   meta: "+580 −42"   },
 ];
 
 // ─── Notification helpers ──────────────────────────────────────────────────
@@ -251,7 +251,7 @@ export function useDashboard(): UseDashboardReturn {
       avatar: meData?.avatar ?? "",
       avatarColor: avatarGradient(username),
       plan,
-      // Gamification — no backend yet, static defaults
+      // Gamification - no backend yet, static defaults
       streak: 0,
       level: 1,
       xp: 0,
@@ -320,7 +320,7 @@ export function useDashboard(): UseDashboardReturn {
           headers: { Authorization: `Bearer ${token}` },
         });
       }
-    } catch { /* ignore — optimistic update already applied */ }
+    } catch { /* ignore - optimistic update already applied */ }
   }, []);
 
   const markRead = useCallback(async (id: string) => {
@@ -336,7 +336,7 @@ export function useDashboard(): UseDashboardReturn {
           headers: { Authorization: `Bearer ${token}` },
         });
       }
-    } catch { /* ignore — optimistic update already applied */ }
+    } catch { /* ignore - optimistic update already applied */ }
   }, []);
 
   return {

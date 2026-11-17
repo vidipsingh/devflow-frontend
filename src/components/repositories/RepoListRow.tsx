@@ -112,7 +112,7 @@ export default function RepoListRow({ repo, isPinned, onTogglePin, onEdit, onDel
         {repo.lastUpdated}
       </span>
 
-      {/* Action buttons — always visible */}
+      {/* Action buttons - always visible */}
       <div className="flex items-center gap-1 flex-shrink-0">
         <button
           onClick={(e) => { e.stopPropagation(); onEdit(repo); }}

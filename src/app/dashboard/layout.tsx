@@ -237,7 +237,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
-      {/* Floating PiP miniplayer — rendered outside main scroll area */}
+      {/* Floating PiP miniplayer - rendered outside main scroll area */}
       <FloatingMiniplayer />
     </div>
   );

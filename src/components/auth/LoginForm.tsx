@@ -16,7 +16,7 @@ import {
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   oauth_cancelled: "OAuth sign-in was cancelled.",
   oauth_failed:    "OAuth sign-in failed. Please try again.",
-  no_token:        "Authentication failed — please try again.",
+  no_token:        "Authentication failed - please try again.",
 };
 
 export default function LoginForm() {

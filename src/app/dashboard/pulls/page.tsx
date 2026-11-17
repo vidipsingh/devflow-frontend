@@ -15,7 +15,7 @@ interface PullRequest {
   id: string;
   number: number;
   repoSlug: string;
-  repoFullName?: string;  // owner~repo from backend — convert ~ → / for hrefs
+  repoFullName?: string;  // owner~repo from backend - convert ~ → / for hrefs
   title: string;
   state: "open" | "closed" | "merged";
   authorName: string;
@@ -215,7 +215,7 @@ export default function GlobalPullsPage() {
     if (reposLoaded) fetchCounts();
   }, [fetchCounts, reposLoaded]);
 
-  // ── Fetch PRs — single backend call ─────────────────────────────────────
+  // ── Fetch PRs - single backend call ─────────────────────────────────────
   const fetchPRs = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -325,7 +325,7 @@ export default function GlobalPullsPage() {
               </select>
             </div>
 
-            {/* Label dropdown — always visible; options populate after first fetch */}
+            {/* Label dropdown - always visible; options populate after first fetch */}
             <div className="flex items-center gap-2">
               <svg className="w-3.5 h-3.5 text-white/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -369,7 +369,7 @@ export default function GlobalPullsPage() {
         {/* ── Main list panel ─────────────────────────────────────────────── */}
         <div className="border border-white/[0.08] rounded-xl overflow-hidden bg-[#0d0d14]">
 
-          {/* Tab bar — counts always visible for all three tabs */}
+          {/* Tab bar - counts always visible for all three tabs */}
           <div className="flex items-center gap-1 px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
             {/* Open */}
             <button

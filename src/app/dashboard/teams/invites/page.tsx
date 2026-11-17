@@ -157,7 +157,7 @@ function InviteCard({ invite, acting, onAccept, onDecline }: InviteCardProps) {
 
       {!expired && !hasToken && (
         <div className="mt-4 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white/30 text-xs text-center">
-          Token unavailable — use the link from your email to accept this invite.
+          Token unavailable - use the link from your email to accept this invite.
         </div>
       )}
 
@@ -180,7 +180,7 @@ export default function MyInvitesPage() {
     setMsg(null);
     try {
       await acceptInvite(token);
-      setMsg({ text: "✓ Invite accepted — you've joined the team!", ok: true });
+      setMsg({ text: "✓ Invite accepted - you've joined the team!", ok: true });
       reload();
     } catch (e: unknown) {
       setMsg({ text: e instanceof Error ? e.message : "Failed to accept", ok: false });

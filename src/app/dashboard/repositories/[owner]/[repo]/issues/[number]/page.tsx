@@ -179,7 +179,7 @@ function ReactionsBar({
       </div>
 
       {!hasAny && (
-        <span className="text-white/20 text-xs italic">No reactions yet — be the first!</span>
+        <span className="text-white/20 text-xs italic">No reactions yet - be the first!</span>
       )}
     </div>
   );
