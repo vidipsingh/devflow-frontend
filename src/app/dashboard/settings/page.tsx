@@ -38,9 +38,8 @@ interface ProfileData {
   isVerified: boolean;
   preferences: UserPreferences;
   createdAt: string;
-  stats: { publicRepos: number; followers: number; following: number; totalStars: number };
+  stats: { publicRepos: number; totalStars: number };
   subscription: { plan: string; status: string; renewalDate: string | null };
-  aiUsage: { reviewsUsed: number; reviewsLimit: number };
   wallet: { balance: number; totalEarned: number; currency: string };
 }
 
@@ -435,18 +434,6 @@ export default function SettingsPage() {
                 </button>
               ))}
             </nav>
-
-            {/* Plan badge */}
-            {profile && (
-              <div className="mt-6 px-3 py-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                <p className="text-white/30 text-xs">Current plan</p>
-                <p className={`text-sm font-semibold mt-0.5 capitalize ${
-                  profile.plan === "pro" ? "text-indigo-300" : profile.plan === "team" ? "text-violet-300" : "text-white/60"
-                }`}>
-                  {profile.plan}
-                </p>
-              </div>
-            )}
           </aside>
 
           {/* ── Main content ────────────────────────────────────────────── */}
@@ -501,12 +488,10 @@ export default function SettingsPage() {
                     {/* Stats card */}
                     {profile && (
                       <SectionCard title="Account overview">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                           {[
                             { label: "Repositories", value: profile.stats?.publicRepos ?? 0 },
                             { label: "Total stars", value: profile.stats?.totalStars ?? 0 },
-                            { label: "Followers", value: profile.stats?.followers ?? 0 },
-                            { label: "Following", value: profile.stats?.following ?? 0 },
                           ].map((stat) => (
                             <div key={stat.label} className="bg-white/[0.03] rounded-lg p-3 border border-white/[0.06]">
                               <p className="text-2xl font-bold text-white">{stat.value}</p>
@@ -515,41 +500,6 @@ export default function SettingsPage() {
                           ))}
                         </div>
                         <p className="text-white/25 text-xs">Member since {new Date(profile.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
-                      </SectionCard>
-                    )}
-
-                    {/* AI + subscription */}
-                    {profile && (
-                      <SectionCard title="Plan & usage">
-                        <div className="flex items-center justify-between py-1">
-                          <div>
-                            <p className="text-sm text-white/70">Current plan</p>
-                            <p className={`text-lg font-bold capitalize ${
-                              profile.plan === "pro" ? "text-indigo-300"
-                              : profile.plan === "team" ? "text-violet-300"
-                              : "text-white/50"
-                            }`}>{profile.plan}</p>
-                          </div>
-                          {profile.plan === "free" && (
-                            <a href="/dashboard/upgrade" className="px-4 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-sm font-medium hover:bg-indigo-500/30 transition-colors">
-                              Upgrade →
-                            </a>
-                          )}
-                        </div>
-                        <div className="border-t border-white/[0.06] pt-3">
-                          <p className="text-xs text-white/40 mb-2">AI Review usage this month</p>
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-indigo-500 rounded-full transition-all"
-                                style={{ width: `${Math.min(100, (profile.aiUsage.reviewsUsed / Math.max(1, profile.aiUsage.reviewsLimit)) * 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-white/40 shrink-0">
-                              {profile.aiUsage.reviewsUsed} / {profile.aiUsage.reviewsLimit === 999999 ? "∞" : profile.aiUsage.reviewsLimit}
-                            </span>
-                          </div>
-                        </div>
                       </SectionCard>
                     )}
                   </div>

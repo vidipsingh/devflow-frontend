@@ -19,8 +19,6 @@ export interface DashboardUser {
   xp: number;
   xpToNext: number;
   badges: string[];
-  aiReviewsUsed: number;
-  aiReviewsLimit: number;
 }
 
 export interface ActivityItem {
@@ -76,7 +74,6 @@ interface MeResponse {
   plan: string;
   name?: string;
   avatar?: string;
-  aiUsage?: { reviewsUsed: number; reviewsLimit: number };
 }
 
 interface APIRepoStats {
@@ -260,8 +257,6 @@ export function useDashboard(): UseDashboardReturn {
       xp: 0,
       xpToNext: 1000,
       badges: [],
-      aiReviewsUsed: meData?.aiUsage?.reviewsUsed ?? 0,
-      aiReviewsLimit: meData?.aiUsage?.reviewsLimit ?? 10,
     };
   }, [meData]);
 
@@ -269,8 +264,7 @@ export function useDashboard(): UseDashboardReturn {
   const stats = useMemo<StatCard[]>(() => {
     const totalRepos = repos.length;
     const totalStars = repos.reduce((acc, r) => acc + (r.stats?.stars ?? 0), 0);
-    const openPRs = repos.reduce((acc, r) => acc + (r.stats?.openPRs ?? 0), 0);
-    const aiReviews = user.aiReviewsUsed;
+    const openPRs   = repos.reduce((acc, r) => acc + (r.stats?.openPRs ?? 0), 0);
 
     return [
       {
@@ -298,15 +292,15 @@ export function useDashboard(): UseDashboardReturn {
         color: "text-violet-400",
       },
       {
-        label: "AI Reviews",
-        value: aiReviews,
-        delta: `${user.aiReviewsLimit - aiReviews} remaining`,
-        positive: user.aiReviewsLimit - aiReviews > 0,
+        label: "Open Issues",
+        value: repos.reduce((acc, r) => acc + (r.stats?.openIssues ?? 0), 0),
+        delta: repos.reduce((acc, r) => acc + (r.stats?.openIssues ?? 0), 0) === 0 ? "All resolved" : "needs attention",
+        positive: repos.reduce((acc, r) => acc + (r.stats?.openIssues ?? 0), 0) === 0,
         icon: "review",
         color: "text-cyan-400",
       },
     ];
-  }, [repos, user.aiReviewsUsed, user.aiReviewsLimit]);
+  }, [repos]);
 
   
   // Notifications

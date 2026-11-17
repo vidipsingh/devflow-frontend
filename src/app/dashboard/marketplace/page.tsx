@@ -38,11 +38,9 @@ const LANGUAGES = [
 ];
 
 const SORT_OPTIONS: { value: NonNullable<SnippetSearchParams["sort"]>; label: string; icon: string }[] = [
-  { value: "popular",    label: "Most Downloaded", icon: "↓" },
-  { value: "rating",     label: "Top Rated",        icon: "★" },
-  { value: "recent",     label: "Recently Published", icon: "🕐" },
-  { value: "price_asc",  label: "Price: Low → High", icon: "↑₹" },
-  { value: "price_desc", label: "Price: High → Low", icon: "↓₹" },
+  { value: "popular", label: "Most Downloaded",   icon: "↓" },
+  { value: "rating",  label: "Top Rated",          icon: "★" },
+  { value: "recent",  label: "Recently Published", icon: "🕐" },
 ];
 
 const PAGE_SIZE = 20;
@@ -155,36 +153,6 @@ function CustomDropdown({
   );
 }
 
-// ─── Price Range Input ────────────────────────────────────────────────────────
-
-function PriceInput({
-  value,
-  placeholder,
-  onChange,
-  onCommit,
-}: {
-  value: string;
-  placeholder: string;
-  onChange: (v: string) => void;
-  onCommit: () => void;
-}) {
-  return (
-    <div className="relative flex items-center">
-      <span className="absolute left-3 text-xs text-white/30 font-medium select-none pointer-events-none">₹</span>
-      <input
-        type="number"
-        min={0}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onCommit}
-        onKeyDown={(e) => e.key === "Enter" && onCommit()}
-        className="w-28 pl-7 pr-3 py-2 bg-[#111118] border border-white/[0.09] rounded-xl text-sm text-white placeholder-white/25 focus:outline-none focus:border-indigo-500/60 focus:bg-[#16162a] transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-      />
-    </div>
-  );
-}
-
 // ─── sub-components ───────────────────────────────────────────────────────────
 
 function StarRating({ rating, count }: { rating: number; count: number }) {
@@ -229,12 +197,8 @@ function SnippetCard({ snippet }: { snippet: Snippet }) {
         <span className={`absolute top-2 right-2 text-[9px] font-semibold px-1.5 py-0.5 rounded-md ${langColor(snippet.language)}`}>
           {snippet.language || "code"}
         </span>
-        <span className={`absolute top-2 left-2 text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
-          snippet.pricing?.type === "paid"
-            ? "bg-emerald-500/20 text-emerald-400"
-            : "bg-white/10 text-white/50"
-        }`}>
-          {snippet.pricing?.type === "paid" ? `₹${snippet.pricing.price}` : "FREE"}
+        <span className="absolute top-2 left-2 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-white/10 text-white/50">
+          FREE
         </span>
       </div>
 
@@ -296,8 +260,6 @@ function SkeletonCard() {
 export default function MarketplacePage() {
   const [inputQ, setInputQ]     = useState("");
   const [language, setLanguage] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
   const [sort, setSort]         = useState<NonNullable<SnippetSearchParams["sort"]>>("popular");
   const [page, setPage]         = useState(1);
 
@@ -313,13 +275,11 @@ export default function MarketplacePage() {
   const buildParams = useCallback((overrides: Partial<SnippetSearchParams> = {}): SnippetSearchParams => ({
     q:        inputQ.trim() || undefined,
     language: language || undefined,
-    minPrice: parseFloat(minPrice) > 0 ? parseFloat(minPrice) : undefined,
-    maxPrice: parseFloat(maxPrice) > 0 ? parseFloat(maxPrice) : undefined,
     sort,
     page:     1,
     limit:    PAGE_SIZE,
     ...overrides,
-  }), [inputQ, language, minPrice, maxPrice, sort]);
+  }), [inputQ, language, sort]);
 
   const commitSearch = useCallback((overrides: Partial<SnippetSearchParams> = {}) => {
     const next = buildParams(overrides);
@@ -334,8 +294,6 @@ export default function MarketplacePage() {
       const next: SnippetSearchParams = {
         q:        val.trim() || undefined,
         language: language || undefined,
-        minPrice: parseFloat(minPrice) > 0 ? parseFloat(minPrice) : undefined,
-        maxPrice: parseFloat(maxPrice) > 0 ? parseFloat(maxPrice) : undefined,
         sort, page: 1, limit: PAGE_SIZE,
       };
       setPage(1);
@@ -364,16 +322,12 @@ export default function MarketplacePage() {
     setParams(next);
   }
 
-  function handleApplyPriceFilter() {
-    commitSearch({ page: 1 });
-  }
-
   function handleClearAll() {
-    setInputQ(""); setLanguage(""); setMinPrice(""); setMaxPrice(""); setSort("popular"); setPage(1);
+    setInputQ(""); setLanguage(""); setSort("popular"); setPage(1);
     setParams({ sort: "popular", page: 1, limit: PAGE_SIZE });
   }
 
-  const hasActiveFilters = !!(inputQ || language || minPrice || maxPrice || sort !== "popular");
+  const hasActiveFilters = !!(inputQ || language || sort !== "popular");
 
   // Build dropdown option lists
   const langOptions: { value: string; label: string; icon: string }[] = LANGUAGES.map((l) => ({
@@ -392,17 +346,13 @@ export default function MarketplacePage() {
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Marketplace</h1>
           <p className="text-sm text-white/40 mt-1">
-            Browse, buy and download community code snippets &amp; projects
+            Browse and download community code snippets &amp; projects
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <Link href="/dashboard/marketplace/my-snippets"
             className="px-3 py-1.5 rounded-lg bg-white/[0.06] text-white/70 text-xs font-medium border border-white/10 hover:bg-white/10 hover:text-white transition-all">
             My Snippets
-          </Link>
-          <Link href="/dashboard/marketplace/purchases"
-            className="px-3 py-1.5 rounded-lg bg-white/[0.06] text-white/70 text-xs font-medium border border-white/10 hover:bg-white/10 hover:text-white transition-all">
-            My Purchases
           </Link>
           <Link href="/dashboard/marketplace/new"
             className="px-4 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-semibold hover:bg-indigo-400 transition-colors shadow shadow-indigo-500/20">
@@ -412,11 +362,10 @@ export default function MarketplacePage() {
       </div>
 
       {/* ── Stats bar ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {[
-          { label: "Total Results", value: total, icon: "📦" },
-          { label: "Free Snippets", value: snippets.filter((s) => s.pricing?.type === "free").length, icon: "🆓" },
-          { label: "Paid Snippets", value: snippets.filter((s) => s.pricing?.type === "paid").length, icon: "💰" },
+          { label: "Total Results",    value: total,            icon: "📦" },
+          { label: "Total Snippets",   value: snippets.length,  icon: "🧩" },
         ].map((stat) => (
           <div key={stat.label} className="bg-[#111118] border border-white/[0.07] rounded-xl px-4 py-3 flex items-center gap-3">
             <span className="text-xl">{stat.icon}</span>
@@ -484,7 +433,7 @@ export default function MarketplacePage() {
         {/* Divider */}
         <div className="h-px bg-white/[0.05]" />
 
-        {/* Row 2: language + price range + active chips */}
+        {/* Row 2: language + active chips */}
         <div className="flex items-center gap-4 flex-wrap">
 
           {/* Language dropdown */}
@@ -499,24 +448,6 @@ export default function MarketplacePage() {
             />
           </div>
 
-          {/* Price range */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-white/30 font-medium shrink-0">Price</span>
-            <PriceInput
-              value={minPrice}
-              placeholder="Min"
-              onChange={setMinPrice}
-              onCommit={handleApplyPriceFilter}
-            />
-            <span className="text-white/20 text-sm font-light">–</span>
-            <PriceInput
-              value={maxPrice}
-              placeholder="Max"
-              onChange={setMaxPrice}
-              onCommit={handleApplyPriceFilter}
-            />
-          </div>
-
           {/* Active filter chips */}
           <div className="flex items-center gap-2 flex-wrap ml-auto">
             {language && (
@@ -524,13 +455,6 @@ export default function MarketplacePage() {
                 <span className="font-bold">{LANGUAGE_ICONS[language.toLowerCase()] ?? language.slice(0,2)}</span>
                 {language}
                 <button onClick={() => handleLanguageChange("")}
-                  className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity">×</button>
-              </span>
-            )}
-            {(minPrice || maxPrice) && (
-              <span className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                ₹{minPrice || "0"} – ₹{maxPrice || "∞"}
-                <button onClick={() => { setMinPrice(""); setMaxPrice(""); commitSearch({ minPrice: undefined, maxPrice: undefined, page: 1 }); }}
                   className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity">×</button>
               </span>
             )}

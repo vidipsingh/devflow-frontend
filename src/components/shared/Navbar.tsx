@@ -6,11 +6,9 @@ import { SiCodeigniter } from "react-icons/si";
 import Link from "next/link";
 
 const NAV_LINKS = [
-  { label: "Features", href: "#features" },
-  { label: "How it Works", href: "#how-it-works" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Marketplace", href: "#marketplace" },
-  { label: "Docs", href: "#" },
+  { label: "Features",     href: "#features"     },
+  { label: "How it Works", href: "#how-it-works"  },
+  { label: "Marketplace",  href: "#marketplace"  },
 ];
 
 export default function Navbar() {
@@ -53,8 +51,8 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-1">
+        {/* Desktop Nav — centered */}
+        <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
           {NAV_LINKS.map((link) => (
             <a
               key={link.label}

@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { DashboardUser, Notification } from "@/hooks/useDashboard";
 
 
@@ -127,21 +128,53 @@ export default function Topbar({
   onMarkRead,
   pageTitle,
 }: TopbarProps) {
+  const router   = useRouter();
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen]   = useState(false);
   const [search, setSearch]       = useState("");
-  const notifRef = useRef<HTMLDivElement>(null);
-  const userRef  = useRef<HTMLDivElement>(null);
+  const notifRef  = useRef<HTMLDivElement>(null);
+  const userRef   = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Detect OS for keyboard hint
+  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+
+  // ⌘K / Ctrl+K → focus the search input
+  const handleGlobalKey = useCallback((e: KeyboardEvent) => {
+    const combo = isMac ? e.metaKey : e.ctrlKey;
+    if (combo && e.key === "k") {
+      e.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    }
+  }, [isMac]);
 
   // Close dropdowns on outside click
   useEffect(() => {
+    document.addEventListener("keydown", handleGlobalKey);
     const handler = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
       if (userRef.current  && !userRef.current.contains(e.target as Node))  setUserOpen(false);
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+    return () => {
+      document.removeEventListener("keydown", handleGlobalKey);
+      document.removeEventListener("mousedown", handler);
+    };
+  }, [handleGlobalKey]);
+
+  // Navigate on Enter
+  const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && search.trim()) {
+      router.push(`/dashboard/explore?q=${encodeURIComponent(search.trim())}`);
+      setSearch("");
+      searchRef.current?.blur();
+    }
+    if (e.key === "Escape") {
+      setSearch("");
+      searchRef.current?.blur();
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 h-14 flex items-center gap-4 px-4 sm:px-6 border-b border-white/[0.06] bg-[#0d0d0f]/90 backdrop-blur-sm flex-shrink-0">
@@ -154,14 +187,16 @@ export default function Topbar({
       <div className="hidden sm:flex flex-1 max-w-sm items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.07] focus-within:border-indigo-500/40 focus-within:ring-1 focus-within:ring-indigo-500/20 transition-all">
         <SearchIcon />
         <input
+          ref={searchRef}
           type="search"
-          placeholder="Search repos, PRs, issues…"
+          placeholder="Search public repos"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={handleSearchSubmit}
           className="flex-1 bg-transparent text-xs text-white placeholder-[#52525b] focus:outline-none"
         />
         <kbd className="hidden sm:inline text-[10px] text-[#3f3f46] bg-white/[0.05] px-1.5 py-0.5 rounded font-mono">
-          ⌘K
+          {isMac ? "⌘K" : "Ctrl K"}
         </kbd>
       </div>
 

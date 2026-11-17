@@ -30,9 +30,6 @@ export default function NewSnippetPage() {
     tags: "",
     category: "",
     version: "1.0.0",
-    pricingType: "free" as "free" | "paid",
-    price: "",
-    currency: "INR",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,10 +44,6 @@ export default function NewSnippetPage() {
     e.preventDefault();
     if (!form.title.trim()) { setError("Title is required"); return; }
     if (!form.code.trim()) { setError("Code is required"); return; }
-    if (form.pricingType === "paid" && (!form.price || Number(form.price) <= 0)) {
-      setError("Price must be greater than 0 for paid snippets");
-      return;
-    }
     setIsSubmitting(true);
     setError(null);
     try {
@@ -68,9 +61,9 @@ export default function NewSnippetPage() {
         tags,
         category: form.category,
         version: form.version,
-        pricingType: form.pricingType,
-        price: form.pricingType === "paid" ? Number(form.price) : 0,
-        currency: form.currency,
+        pricingType: "free",
+        price: 0,
+        currency: "INR",
       });
       router.push(`/dashboard/marketplace/${snippet.id}`);
     } catch (e) {
@@ -215,68 +208,6 @@ export default function NewSnippetPage() {
               {form.code.length} characters · {form.code.split("\n").length} lines
             </p>
           </div>
-        </div>
-
-        {/* Pricing */}
-        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-6 space-y-5">
-          <h2 className="text-[10px] font-semibold text-white/40 uppercase tracking-widest">Pricing</h2>
-
-          <div className="flex gap-3">
-            {[
-              { value: "free", label: "Free", desc: "Anyone can download", icon: "🆓" },
-              { value: "paid", label: "Paid", desc: "Earn from your work", icon: "💰" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => set("pricingType", opt.value)}
-                className={`flex-1 flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-all text-left ${
-                  form.pricingType === opt.value
-                    ? "border-indigo-500/50 bg-indigo-500/10 text-white"
-                    : "border-white/[0.08] bg-white/[0.02] text-white/50 hover:border-white/20"
-                }`}
-              >
-                <span className="text-xl">{opt.icon}</span>
-                <div>
-                  <p className="text-sm font-semibold">{opt.label}</p>
-                  <p className="text-[10px] text-white/35 mt-0.5">{opt.desc}</p>
-                </div>
-                {form.pricingType === opt.value && (
-                  <div className="ml-auto w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center">
-                    <svg width="8" height="8" viewBox="0 0 8 8" fill="white">
-                      <path d="M1.5 4l2 2 3-3" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    </svg>
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {form.pricingType === "paid" && (
-            <div className="flex gap-4 items-end">
-              <div className="space-y-1.5 w-40">
-                <label className="text-xs font-medium text-white/60">Price (INR) <span className="text-red-400">*</span></label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/30">₹</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={form.price}
-                    onChange={(e) => set("price", e.target.value)}
-                    placeholder="99"
-                    className="w-full pl-7 pr-3 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 transition-colors"
-                  />
-                </div>
-              </div>
-              {form.price && Number(form.price) > 0 && (
-                <div className="pb-2.5 text-xs text-white/40 space-y-0.5">
-                  <p>Platform fee: <span className="text-white/60">₹{(Number(form.price) * 0.20).toFixed(2)} (20%)</span></p>
-                  <p>You earn: <span className="text-emerald-400 font-semibold">₹{(Number(form.price) * 0.80).toFixed(2)}</span></p>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Error */}

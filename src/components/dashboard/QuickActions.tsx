@@ -32,9 +32,9 @@ const ACTIONS: QuickAction[] = [
     ),
   },
   {
-    label: "New pull request",
-    description: "Propose code changes",
-    href: "/dashboard/pulls/new",
+    label: "Pull request",
+    description: "View & manage pull requests",
+    href: "/dashboard/pulls",
     color: "bg-violet-500/15 text-violet-400",
     border: "hover:border-violet-500/30",
     icon: (
@@ -47,15 +47,17 @@ const ACTIONS: QuickAction[] = [
     ),
   },
   {
-    label: "AI Code Review",
-    description: "Run AI review on a PR",
-    href: "/dashboard/ai",
+    label: "Teams",
+    description: "View your team discussions",
+    href: "/dashboard/teams",
     color: "bg-cyan-500/15 text-cyan-400",
     border: "hover:border-cyan-500/30",
     icon: (
       <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
-        <path d="M8.5 2l1.3 2.6L13 5.4l-2.25 2.19.53 3.11L8.5 9.5l-2.78 1.2.53-3.11L4 5.4l3.2-.8L8.5 2Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-        <path d="M3.5 13l2 2M13.5 13l-2 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        <circle cx="6.5" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M1.5 14c0-2.76 2.24-5 5-5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        <circle cx="12" cy="6.5" r="2" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M9.5 14c0-1.66 1.12-3 2.5-3s2.5 1.34 2.5 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -76,7 +78,7 @@ const ACTIONS: QuickAction[] = [
   {
     label: "Invite teammate",
     description: "Collaborate with your team",
-    href: "/dashboard/team",
+    href: "/dashboard/teams",
     color: "bg-amber-500/15 text-amber-400",
     border: "hover:border-amber-500/30",
     icon: (

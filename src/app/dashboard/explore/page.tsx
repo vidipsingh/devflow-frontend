@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/apiFetch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -100,9 +101,12 @@ function RepoCard({ repo }: { repo: APIRepo }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ExplorePage() {
+  const searchParams = useSearchParams();
+  const initialQ = searchParams.get("q") ?? "";
+
   const [repos, setRepos] = useState<APIRepo[]>([]);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState(initialQ);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialQ);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

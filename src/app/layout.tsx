@@ -16,30 +16,30 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DevFlow — AI-Powered Git Hosting & Code Collaboration",
+  title: "DevFlow — Code Hosting & Collaboration",
   description:
-    "DevFlow is the next-generation Git hosting platform with AI code review, real-time collaboration, gamification, and a snippet marketplace. Ship better code, faster.",
+    "DevFlow is the next-generation developer platform with real-time pair programming, gamification, inline code reviews, and a snippet marketplace. Ship better code, faster.",
   keywords: [
-    "git hosting",
+    "code hosting",
     "code review",
-    "AI code review",
     "developer platform",
     "collaboration",
+    "pair programming",
     "open source",
     "DevFlow",
   ],
   authors: [{ name: "DevFlow Team" }],
   openGraph: {
-    title: "DevFlow — AI-Powered Git Hosting",
+    title: "DevFlow — Code Hosting for Modern Teams",
     description:
-      "Ship better code faster with AI-powered reviews, real-time collaboration, and developer gamification.",
+      "Ship better code faster with real-time collaboration, inline PR reviews, and developer gamification.",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "DevFlow — AI-Powered Git Hosting",
-    description: "Ship better code faster with AI-powered reviews.",
+    title: "DevFlow — Code Hosting for Modern Teams",
+    description: "Ship better code faster with real-time collaboration and gamification.",
   },
   robots: { index: true, follow: true },
 };

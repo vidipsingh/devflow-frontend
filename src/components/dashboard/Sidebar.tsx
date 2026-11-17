@@ -136,12 +136,10 @@ function buildNavSections(openPRs: number, openIssues: number, unreadNotifs: num
     {
       title: "DevFlow",
       items: [
-        { label: "AI Reviews",       href: "/dashboard/ai",    icon: Icon.ai          },
         { label: "Pair Programming", href: "/dashboard/pair",  icon: Icon.pair        },
         { label: "Marketplace",  href: "/dashboard/marketplace",  icon: Icon.marketplace },
         { label: "Analytics",    href: "/dashboard/analytics",    icon: Icon.analytics  },
         { label: "Teams",         href: "/dashboard/teams",         icon: Icon.teams       },
-        { label: "Billing",      href: "/dashboard/billing",      icon: Icon.billing    },
       ],
     },
     {
@@ -264,9 +262,6 @@ export default function Sidebar({ user, openPRs = 0, openIssues = 0, unreadNotif
               <p className="text-xs font-semibold text-white truncate">{user.name}</p>
               <p className="text-[10px] text-[#52525b] truncate">@{user.username}</p>
             </div>
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold uppercase tracking-wide flex-shrink-0">
-              {user.plan}
-            </span>
           </div>
         </div>
       )}

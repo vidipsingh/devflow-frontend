@@ -7,7 +7,6 @@ import {
   useAllReposAnalytics,
   useRepoAnalytics,
   useTeamAnalytics,
-  DailyActivity,
   MonthlySeries,
   SnippetPerformance,
   LanguageStat,
@@ -16,6 +15,7 @@ import {
   TimeSeriesPoint,
 } from "@/hooks/useAnalytics";
 import { useMyTeams, Team } from "@/hooks/useTeams";
+import ContributionGraph from "@/components/dashboard/ContributionGraph";
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -23,14 +23,6 @@ function fmtNum(n: number, decimals = 0): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return n.toFixed(decimals);
-}
-
-function fmtINR(n: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(n);
 }
 
 function fmtHrs(h: number): string {
@@ -139,97 +131,6 @@ function ErrorBox({ message }: { message: string }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       {message}
-    </div>
-  );
-}
-
-// ─── Contribution heatmap ─────────────────────────────────────────────────────
-
-function Heatmap({ data }: { data: DailyActivity[] }) {
-  const map = useMemo(() => {
-    const m: Record<string, number> = {};
-    data.forEach((d) => { m[d.date] = d.count; });
-    return m;
-  }, [data]);
-
-  const cells = useMemo(() => {
-    const result: { date: string; count: number; dow: number }[] = [];
-    const today = new Date();
-    for (let i = 364; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().split("T")[0];
-      result.push({ date: key, count: map[key] ?? 0, dow: d.getDay() });
-    }
-    return result;
-  }, [map]);
-
-  const weeks = useMemo(() => {
-    const w: typeof cells[] = [];
-    for (let i = 0; i < cells.length; i += 7) w.push(cells.slice(i, i + 7));
-    return w;
-  }, [cells]);
-
-  const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const DOW_LABELS   = ["Sun","Mon","","Wed","","Fri",""];
-
-  function cellColor(c: number) {
-    if (c === 0) return "bg-white/[0.05]";
-    if (c <= 2) return "bg-violet-900/70";
-    if (c <= 5) return "bg-violet-700/80";
-    if (c <= 10) return "bg-violet-500/90";
-    return "bg-violet-400";
-  }
-
-  const monthLabels: { label: string; col: number }[] = [];
-  let lastMonth = -1;
-  weeks.forEach((week, wi) => {
-    const d = new Date(week[0]?.date);
-    const m = d.getMonth();
-    if (m !== lastMonth) { monthLabels.push({ label: MONTH_LABELS[m], col: wi }); lastMonth = m; }
-  });
-
-  return (
-    <div className="overflow-x-auto">
-      <div className="flex gap-px min-w-max">
-        <div className="flex flex-col gap-px mr-1.5 pt-5">
-          {DOW_LABELS.map((l, i) => (
-            <span key={i} className="text-[9px] text-white/20 h-[13px] flex items-center leading-none">{l}</span>
-          ))}
-        </div>
-        <div>
-          <div className="flex gap-px mb-1 h-4">
-            {weeks.map((_, wi) => {
-              const ml = monthLabels.find((m) => m.col === wi);
-              return (
-                <div key={wi} className="w-[13px]">
-                  {ml && <span className="text-[9px] text-white/25 whitespace-nowrap">{ml.label}</span>}
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex gap-px">
-            {weeks.map((week, wi) => (
-              <div key={wi} className="flex flex-col gap-px">
-                {week.map((cell) => (
-                  <div
-                    key={cell.date}
-                    title={`${cell.date}: ${cell.count} commit${cell.count !== 1 ? "s" : ""}`}
-                    className={`w-[13px] h-[13px] rounded-[3px] ${cellColor(cell.count)} transition-opacity hover:opacity-80 cursor-default`}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center gap-1.5 mt-3">
-        <span className="text-[10px] text-white/25">Less</span>
-        {(["bg-white/[0.05]", "bg-violet-900/70", "bg-violet-700/80", "bg-violet-500/90", "bg-violet-400"] as const).map((c, i) => (
-          <span key={i} className={`w-[13px] h-[13px] rounded-[3px] ${c}`} />
-        ))}
-        <span className="text-[10px] text-white/25">More</span>
-      </div>
     </div>
   );
 }
@@ -402,7 +303,7 @@ function SnippetTable({ data }: { data: SnippetPerformance[] }) {
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-white/[0.06]">
-            {["Snippet", "Downloads", "Purchases", "Revenue", "Rating", "Status"].map((h) => (
+            {["Snippet", "Downloads", "Rating", "Status"].map((h) => (
               <th key={h} className={`py-2 font-medium text-white/30 ${h === "Snippet" ? "text-left pr-4 pl-1" : "text-right px-2 last:pr-1"}`}>
                 {h}
               </th>
@@ -414,10 +315,6 @@ function SnippetTable({ data }: { data: SnippetPerformance[] }) {
             <tr key={s.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
               <td className="py-2.5 pr-4 pl-1 text-white/70 max-w-[180px] truncate font-medium">{s.title}</td>
               <td className="py-2.5 px-2 text-right text-white/50 tabular-nums">{fmtNum(s.downloads)}</td>
-              <td className="py-2.5 px-2 text-right text-white/50 tabular-nums">{fmtNum(s.purchases)}</td>
-              <td className="py-2.5 px-2 text-right tabular-nums text-emerald-400 font-medium">
-                {s.revenue > 0 ? fmtINR(s.revenue) : "—"}
-              </td>
               <td className="py-2.5 px-2 text-right tabular-nums text-amber-400">
                 {s.rating > 0 ? (
                   <span className="flex items-center justify-end gap-0.5">
@@ -589,7 +486,6 @@ const Icon = {
   pair:   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx={9} cy={7} r={4} /><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /></svg>,
   clock:  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={12} cy={12} r={10} /><polyline points="12 6 12 12 16 14" /></svg>,
   download: <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>,
-  money:  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><line x1={12} y1={1} x2={12} y2={23} /><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>,
   snippet:<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>,
   chart:  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>,
   team:   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx={9} cy={7} r={4} /><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" /></svg>,
@@ -874,7 +770,7 @@ export default function AnalyticsPage() {
             </div>
 
             <Section title="Contribution Activity" subtitle="Daily commit history — last 365 days">
-              <Heatmap data={data.activity} />
+              <ContributionGraph streak={streak} />
             </Section>
           </div>
         )}
@@ -892,7 +788,7 @@ export default function AnalyticsPage() {
             </div>
 
             <Section title="Contribution Heatmap" subtitle="365-day commit activity">
-              <Heatmap data={data.activity} />
+              <ContributionGraph streak={streak} />
             </Section>
 
             <Section title="Language Breakdown" subtitle="Based on repository language tags">
@@ -947,32 +843,19 @@ export default function AnalyticsPage() {
         ════════════════════════════════════════════════════════════════════ */}
         {tab === "Marketplace" && data && (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Total Snippets"   value={String(data.marketplace.totalSnippets)}    sub={`${data.marketplace.publishedSnippets} published`} icon={Icon.snippet}  accent="violet"  />
-              <StatCard label="Total Downloads"  value={fmtNum(data.marketplace.totalDownloads)}   sub="all snippets"                                      icon={Icon.download} accent="cyan"    />
-              <StatCard label="Total Purchases"  value={fmtNum(data.marketplace.totalPurchases)}   sub="paid sales"                                        icon={Icon.chart}    accent="emerald" />
-              <StatCard label="Creator Earnings" value={fmtINR(data.marketplace.creatorEarnings)}  sub="net to you"                                        icon={Icon.money}    accent="amber"   />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-white/[0.07] bg-[#0d0d14] p-5 space-y-1 sm:col-span-1">
-                <p className="text-[11px] text-white/30 uppercase tracking-widest">Total Revenue</p>
-                <p className="text-3xl font-bold text-white">{fmtINR(data.marketplace.totalRevenue)}</p>
-                <p className="text-xs text-white/25">Gross before platform fee</p>
-              </div>
-              <div className="rounded-2xl border border-white/[0.07] bg-[#0d0d14] p-5 space-y-1">
-                <p className="text-[11px] text-white/30 uppercase tracking-widest">Platform Take</p>
-                <p className="text-3xl font-bold text-rose-400">
-                  {fmtINR(data.marketplace.totalRevenue - data.marketplace.creatorEarnings)}
-                </p>
-                <p className="text-xs text-white/25">Revenue − earnings</p>
-              </div>
-              <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/8 bg-[#0d0d14] p-5 space-y-1">
-                <p className="text-[11px] text-white/30 uppercase tracking-widest">Avg Rating</p>
-                <p className="text-3xl font-bold text-amber-400">
-                  {data.marketplace.avgRating > 0 ? `${data.marketplace.avgRating.toFixed(1)} ★` : "—"}
-                </p>
-                <p className="text-xs text-white/25">Across all snippets</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <StatCard label="Total Snippets"   value={String(data.marketplace.totalSnippets)}  sub={`${data.marketplace.publishedSnippets} published`} icon={Icon.snippet}  accent="violet" />
+              <StatCard label="Total Downloads"  value={fmtNum(data.marketplace.totalDownloads)} sub="all snippets"                                      icon={Icon.download} accent="cyan"   />
+              <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/8 bg-[#0d0d14] p-5 flex flex-col gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-400">
+                  {Icon.star}
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-white tracking-tight">
+                    {data.marketplace.avgRating > 0 ? `${data.marketplace.avgRating.toFixed(1)} ★` : "—"}
+                  </p>
+                  <p className="text-[11px] text-white/40 mt-0.5 uppercase tracking-widest">Avg Rating</p>
+                </div>
               </div>
             </div>
 

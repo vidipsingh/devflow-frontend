@@ -59,18 +59,6 @@ function SnippetRow({
         <p className="text-[11px] text-white/35 truncate">{snippet.description || "No description"}</p>
       </div>
 
-      {/* Pricing */}
-      <div className="text-right flex-shrink-0">
-        <p className={`text-xs font-semibold ${snippet.pricing?.type === "paid" ? "text-emerald-400" : "text-white/30"}`}>
-          {snippet.pricing?.type === "paid" ? `₹${snippet.pricing.price}` : "Free"}
-        </p>
-        {snippet.pricing?.type === "paid" && (
-          <p className="text-[10px] text-white/25">
-            ₹{snippet.earnings?.creatorEarnings?.toFixed(2) ?? "0.00"} earned
-          </p>
-        )}
-      </div>
-
       {/* Stats */}
       <div className="hidden sm:flex items-center gap-3 text-[10px] text-white/25 flex-shrink-0">
         <span>{snippet.stats?.downloads ?? 0} ↓</span>
@@ -166,10 +154,6 @@ export default function MySnippetsPage() {
     }
   };
 
-  const totalEarnings = snippets.reduce(
-    (acc, s) => acc + (s.earnings?.creatorEarnings ?? 0), 0
-  );
-
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -192,12 +176,11 @@ export default function MySnippetsPage() {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "Total",     value: snippets.length,                                     color: "text-white" },
+          { label: "Total",     value: snippets.length,                                         color: "text-white"       },
           { label: "Published", value: snippets.filter((s) => s.status === "published").length, color: "text-emerald-400" },
-          { label: "Drafts",    value: snippets.filter((s) => s.status === "draft").length,     color: "text-amber-400" },
-          { label: "Earnings",  value: `₹${totalEarnings.toFixed(2)}`,                          color: "text-green-400" },
+          { label: "Drafts",    value: snippets.filter((s) => s.status === "draft").length,     color: "text-amber-400"   },
         ].map((s) => (
           <div key={s.label} className="bg-[#111118] border border-white/[0.07] rounded-xl p-4">
             <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
@@ -276,7 +259,6 @@ export default function MySnippetsPage() {
             <div className="flex items-center gap-4 px-5 py-2.5 border-b border-white/[0.07] bg-white/[0.02]">
               <div className="w-2 flex-shrink-0" />
               <p className="flex-1 text-[10px] font-semibold text-white/30 uppercase tracking-widest">Snippet</p>
-              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest flex-shrink-0 w-24 text-right">Pricing</p>
               <p className="hidden sm:block text-[10px] font-semibold text-white/30 uppercase tracking-widest flex-shrink-0 w-28 text-right">Stats</p>
               <p className="text-[10px] font-semibold text-white/30 uppercase tracking-widest flex-shrink-0 w-40 text-right">Actions</p>
             </div>

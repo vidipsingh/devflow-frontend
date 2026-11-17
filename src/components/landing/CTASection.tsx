@@ -10,7 +10,7 @@ export default function CTASection() {
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div className="inline-flex badge-pill bg-white/[0.06] border border-white/[0.1] text-[#a1a1aa] mb-6">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
-          Free forever on the free plan
+          Free forever
         </div>
 
         <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight mb-5 leading-[1.08]">

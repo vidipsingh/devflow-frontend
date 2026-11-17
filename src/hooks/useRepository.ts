@@ -30,7 +30,6 @@ export interface Repository {
   isPinned: boolean;
   topics: string[];
   ciStatus: "passing" | "failing" | "pending" | "none";
-  aiReviews: number;
 }
 
 export type SortKey = "updated" | "stars" | "name";
@@ -123,9 +122,8 @@ function mapAPIRepo(r: APIRepository): Repository {
     isForked: r.isFork ?? false,
     isPinned: r.isPinned ?? false,
     topics: r.topics ?? [],
-    // ciStatus and aiReviews are not yet in backend — default for now
+    // ciStatus is not yet in backend — default for now
     ciStatus: "none",
-    aiReviews: 0,
   };
 }
 

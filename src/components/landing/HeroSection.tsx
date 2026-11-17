@@ -12,22 +12,18 @@ export default function HeroSection() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         {/* Eyebrow */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-400 text-xs font-medium mb-8 animate-fade-in">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-          Now in Public Beta — AI Code Review included free
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2 6h8M6.5 2.5L10 6l-3.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full  mb-8 animate-fade-in">
+          <span className="inline-block w-1.5 h-1.5 rounded-full " />
         </div>
 
         <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] mb-6 animate-fade-in-up">
-          <span className="text-white">Git hosting with</span>
+          <span className="text-white">Code collaboration for</span>
           <br />
-          <span className="gradient-text">AI superpowers</span>
+          <span className="gradient-text">modern teams</span>
         </h1>
 
         <p className="max-w-2xl mx-auto text-lg sm:text-xl text-[#a1a1aa] leading-relaxed mb-10 animate-fade-in-up delay-200">
-          DevFlow is the next-generation developer platform — AI code review, real-time pair
+          DevFlow is the next-generation developer platform — Real-time pair
           programming, gamified contributions, and a snippet marketplace. Ship faster. Ship better.
         </p>
 
@@ -41,16 +37,6 @@ export default function HeroSection() {
               <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </Link>
-          <a
-            href="#how-it-works"
-            className="btn-outline inline-flex items-center gap-2 px-6 py-3 rounded-xl text-[15px] font-medium w-full sm:w-auto justify-center"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.2" />
-              <path d="M6.5 5.5L10.5 8l-4 2.5V5.5Z" fill="currentColor" />
-            </svg>
-            Watch demo
-          </a>
         </div>
 
         {/* Social proof */}
@@ -104,7 +90,7 @@ export default function HeroSection() {
             </div>
             <div className="flex items-center gap-2">
               <span className="badge-pill bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-[10px]">✓ CI Passing</span>
-              <span className="badge-pill bg-violet-500/15 border border-violet-500/25 text-violet-400 text-[10px]">✨ AI Review</span>
+              <span className="badge-pill bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 text-[10px]">3 PRs open</span>
             </div>
           </div>
           {/* Tabs */}
@@ -118,9 +104,9 @@ export default function HeroSection() {
           {/* PR rows */}
           <div className="divide-y divide-white/[0.04]">
             {[
-              { id: 42, title: "feat: add Stripe payment integration with webhook handling", user: "alex_dev", status: "review", ai: true, checks: "passing", comments: 4 },
-              { id: 41, title: "fix: resolve race condition in concurrent checkout processing", user: "sam_codes", status: "approved", ai: false, checks: "passing", comments: 2 },
-              { id: 40, title: "refactor: migrate payment service to dependency injection pattern", user: "priya_eng", status: "review", ai: true, checks: "failing", comments: 8 },
+              { id: 42, title: "feat: add Stripe payment integration with webhook handling", user: "alex_dev", status: "review", checks: "passing", comments: 4 },
+              { id: 41, title: "fix: resolve race condition in concurrent checkout processing", user: "sam_codes", status: "approved", checks: "passing", comments: 2 },
+              { id: 40, title: "refactor: migrate payment service to dependency injection pattern", user: "priya_eng", status: "review", checks: "failing", comments: 8 },
             ].map(pr => (
               <div key={pr.id} className="px-4 py-3.5 hover:bg-white/[0.02] transition-colors flex items-center gap-3">
                 <svg className={`w-4 h-4 flex-shrink-0 ${pr.status === "approved" ? "text-emerald-400" : "text-indigo-400"}`} viewBox="0 0 16 16" fill="none">
@@ -132,7 +118,6 @@ export default function HeroSection() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm text-white font-medium truncate">{pr.title}</span>
-                    {pr.ai && <span className="badge-pill bg-violet-500/15 border border-violet-500/25 text-violet-400 text-[10px] flex-shrink-0">✨ AI</span>}
                   </div>
                   <span className="text-[11px] text-[#52525b]">#{pr.id} · {pr.user}</span>
                 </div>
@@ -144,21 +129,6 @@ export default function HeroSection() {
                 </div>
               </div>
             ))}
-          </div>
-          {/* AI banner */}
-          <div className="border-t border-white/[0.06] px-4 py-3 bg-violet-500/[0.04]">
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                  <path d="M5.5 1l1.1 2.2L9 3.8l-1.83 1.78.43 2.52L5.5 6.9 3.4 8.1l.43-2.52L2 3.8l2.4-.6L5.5 1Z" fill="white" />
-                </svg>
-              </div>
-              <p className="text-xs text-[#a1a1aa] leading-relaxed">
-                <span className="text-violet-300 font-semibold">DevFlow AI · PR #42 — </span>
-                Found <span className="text-amber-400 font-medium">2 issues</span>: missing timeout on webhook handler and unvalidated payment amount.
-                Suggested <span className="text-emerald-400 font-medium">3 optimisations</span> for retry logic.
-              </p>
-            </div>
           </div>
         </div>
 

@@ -1,7 +1,6 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiCodeigniter } from "react-icons/si";
 
 export const metadata: Metadata = {
   title: {
@@ -22,7 +21,9 @@ export default function AuthLayout({
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg group-hover:shadow-indigo-500/40 transition-shadow duration-300">
-              <SiCodeigniter className="text-white text-xs" />
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
             </div>
             <span className="text-[14px] font-semibold text-white tracking-tight">
               DevFlow

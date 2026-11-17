@@ -2,15 +2,15 @@
 export default function FeaturesSection() {
   const features = [
     {
-      icon: "✨",
+      icon: "🔀",
       gradient: "from-violet-500/20 to-indigo-500/20",
       iconBg: "bg-violet-500/15",
       borderHover: "hover:border-violet-500/30",
-      tag: "AI-Powered",
+      tag: "Core",
       tagColor: "bg-violet-500/15 border-violet-500/25 text-violet-400",
-      title: "AI Code Review",
-      desc: "Automatically analyse every PR with AI. Catch bugs, security issues, and performance bottlenecks before production.",
-      bullets: ["Bug & vulnerability detection", "Security scanning (OWASP)", "Performance suggestions", "Auto-fix code snippets"],
+      title: "Inline PR Comments",
+      desc: "Review code with GitHub-style inline comments directly on the diff. Suggest changes, leave threaded feedback, and resolve discussions.",
+      bullets: ["Line-level inline comments", "Threaded review discussions", "Suggest & apply changes", "Resolve & re-open threads"],
     },
     {
       icon: "🤝",
@@ -30,9 +30,9 @@ export default function FeaturesSection() {
       borderHover: "hover:border-emerald-500/30",
       tag: "DevOps",
       tagColor: "bg-emerald-500/15 border-emerald-500/25 text-emerald-400",
-      title: "Smart Git Hosting",
-      desc: "Full Git protocol with branch protection, LFS, CODEOWNERS enforcement, and required CI checks — plus smart HTTP and SSH.",
-      bullets: ["Full Git protocol (HTTP/SSH)", "Branch protection rules", "CI/CD integration hooks", "Automated merge checks"],
+      title: "Smart Code Hosting",
+      desc: "Full repository protocol with branch protection, LFS, CODEOWNERS enforcement, and required CI checks — plus smart HTTP and SSH.",
+      bullets: ["HTTP & SSH repository access", "Branch protection rules", "CI/CD integration hooks", "Automated merge checks"],
     },
     {
       icon: "📊",
@@ -80,7 +80,7 @@ export default function FeaturesSection() {
             Everything your team needs
           </h2>
           <p className="text-lg text-[#71717a] max-w-2xl mx-auto">
-            From AI-assisted code review to gamified developer experiences — DevFlow reimagines the entire workflow.
+            From real-time pair programming to gamified developer experiences — DevFlow reimagines the entire workflow.
           </p>
         </div>
 

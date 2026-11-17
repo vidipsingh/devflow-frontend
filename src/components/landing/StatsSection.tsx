@@ -1,9 +1,9 @@
 
   const FALLBACK_STATS = [
-    { value: "50K+", label: "Lines reviewed daily", color: "text-indigo-400" },
-    { value: "98%",  label: "AI review accuracy",   color: "text-cyan-400"   },
-    { value: "3.2×", label: "Faster code review",   color: "text-emerald-400"},
-    { value: "99.9%",label: "Platform uptime",      color: "text-violet-400" },
+    { value: "50K+", label: "Commits pushed daily",    color: "text-indigo-400" },
+    { value: "8K+",  label: "Active repositories",     color: "text-cyan-400"   },
+    { value: "3.2×", label: "Faster code review",      color: "text-emerald-400"},
+    { value: "2.4K+",label: "Developers joined",       color: "text-violet-400" },
   ];
 
   async function getPlatformStats() {
@@ -22,7 +22,7 @@
         totalUsers: number;
         totalRepositories: number;
         totalSnippets: number;
-        totalAIReviews: number;
+        totalPullRequests: number;
       };
     } catch {
       return null;
@@ -40,10 +40,10 @@
 
   const stats = data
     ? [
-        { value: formatCount(data.totalUsers),        label: "Developers signed up",  color: "text-indigo-400"  },
-        { value: formatCount(data.totalRepositories), label: "Repositories hosted",    color: "text-cyan-400"    },
-        { value: formatCount(data.totalSnippets),     label: "Marketplace snippets",   color: "text-emerald-400" },
-        { value: formatCount(data.totalAIReviews),    label: "AI reviews completed",   color: "text-violet-400"  },
+        { value: formatCount(data.totalUsers),         label: "Developers joined",      color: "text-indigo-400"  },
+        { value: formatCount(data.totalRepositories),  label: "Repositories hosted",    color: "text-cyan-400"    },
+        { value: formatCount(data.totalSnippets),      label: "Marketplace snippets",   color: "text-emerald-400" },
+        { value: formatCount(data.totalPullRequests),  label: "Active contributors",    color: "text-violet-400"  },
       ]
     : FALLBACK_STATS;
 

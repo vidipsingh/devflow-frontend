@@ -18,13 +18,13 @@ const FALLBACK_PLANS: PricingPlan[] = [
     planKey: "free", name: "Free", price: 0, currency: "USD", period: "forever",
     description: "Perfect for indie developers and open source.",
     badge: null, isHighlighted: false, ctaLabel: "Get started", ctaHref: "/signup",
-    features: ["Unlimited public repos", "3 private repos", "5 AI reviews/month", "Basic analytics", "1 GB storage"],
+    features: ["Unlimited public repos", "Unlimited private repos", "Inline PR reviews", "Basic analytics", "1 GB storage"],
   },
   {
     planKey: "pro", name: "Pro", price: 4.99, currency: "USD", period: "per month",
     description: "For serious developers who ship every day.",
-    badge: "Most Popular", isHighlighted: true, ctaLabel: "Start Pro free", ctaHref: "/signup?plan=pro",
-    features: ["Unlimited repos", "Unlimited AI reviews", "Pair programming", "50 GB storage", "Video recordings"],
+    badge: "Most Popular", isHighlighted: true, ctaLabel: "Start free", ctaHref: "/signup",
+    features: ["Unlimited repos", "Pair programming", "50 GB storage", "Video recordings", "Advanced analytics"],
   },
   {
     planKey: "team", name: "Team", price: 12, currency: "USD", period: "per user / month",

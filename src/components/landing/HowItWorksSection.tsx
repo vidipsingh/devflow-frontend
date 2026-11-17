@@ -7,15 +7,15 @@ export default function HowItWorksSection() {
       borderColor: "border-indigo-500/30",
       bg: "bg-indigo-500/10",
       title: "Create your repository",
-      desc: "Push code with a familiar git remote workflow. DevFlow handles storage, indexing, and access control automatically.",
-      code: `$ git remote add devflow \\
+      desc: "Push code with a familiar remote workflow. DevFlow handles storage, indexing, and access control automatically.",
+      code: `$ devflow remote add origin \\
     https://devflow.io/acme/api.devflow
-$ git push devflow main
+$ devflow push origin main
+
 
   ✓ Objects uploaded (42 objects)
   ✓ Refs updated
-  ✓ CI pipeline triggered
-  ✓ AI review queued`,
+  ✓ CI pipeline triggered`,
     },
     {
       num: "02",
@@ -23,13 +23,14 @@ $ git push devflow main
       borderColor: "border-violet-500/30",
       bg: "bg-violet-500/10",
       title: "Open a pull request",
-      desc: "Create PRs from the web UI or CLI. DevFlow AI automatically reviews and posts inline suggestions within seconds.",
+      desc: "Create PRs from the web UI or CLI.Post reviews and posts inline suggestions within seconds.",
       code: `$ devflow pr create \\
     --title "feat: payment webhooks"
 
   ✓ Pull request #42 created
   ✓ Reviewers notified
-  ✨ AI review complete
+
+
 
   → 2 issues, 3 suggestions`,
     },
@@ -63,7 +64,7 @@ $ git push devflow main
             Up and running in minutes
           </h2>
           <p className="text-lg text-[#71717a] max-w-xl mx-auto">
-            Familiar Git workflow with powerful superpowers baked in at every step.
+            Familiar developer workflow with powerful superpowers baked in at every step.
           </p>
         </div>
 

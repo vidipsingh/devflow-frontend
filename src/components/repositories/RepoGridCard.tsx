@@ -131,15 +131,9 @@ export default function RepoGridCard({ repo, isPinned, onTogglePin, onEdit, onDe
           </div>
         )}
 
-        {/* CI + AI row */}
+        {/* CI row */}
         <div className="flex items-center justify-between">
           <CIBadge status={repo.ciStatus} />
-          {repo.aiReviews > 0 && (
-            <span className="flex items-center gap-1 text-[11px] text-violet-400/80">
-              <Bot size={11} />
-              {repo.aiReviews} AI reviews
-            </span>
-          )}
         </div>
 
         {/* Stats row */}

@@ -32,8 +32,6 @@ export default function EditSnippetPage() {
     tags: "",
     category: "",
     version: "",
-    pricingType: "free" as "free" | "paid",
-    price: "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,8 +51,6 @@ export default function EditSnippetPage() {
       tags: (snippet.tags ?? []).join(", "),
       category: snippet.category ?? "",
       version: snippet.version ?? "1.0.0",
-      pricingType: snippet.pricing?.type ?? "free",
-      price: snippet.pricing?.type === "paid" ? String(snippet.pricing.price) : "",
     });
   }, [snippet]);
 
@@ -66,10 +62,6 @@ export default function EditSnippetPage() {
     e.preventDefault();
     if (!form.title.trim()) { setSubmitError("Title is required"); return; }
     if (!form.code.trim()) { setSubmitError("Code is required"); return; }
-    if (form.pricingType === "paid" && (!form.price || Number(form.price) <= 0)) {
-      setSubmitError("Price must be greater than 0 for paid snippets");
-      return;
-    }
     setIsSubmitting(true);
     setSubmitError(null);
     try {
@@ -83,8 +75,8 @@ export default function EditSnippetPage() {
         tags,
         category: form.category,
         version: form.version,
-        pricingType: form.pricingType,
-        price: form.pricingType === "paid" ? Number(form.price) : 0,
+        pricingType: "free",
+        price: 0,
       });
       setSaved(true);
       setTimeout(() => router.push(`/dashboard/marketplace/${snippetId}`), 1200);
@@ -241,46 +233,6 @@ export default function EditSnippetPage() {
           <div className="px-4 py-2 border-t border-white/[0.06] bg-white/[0.02]">
             <p className="text-[10px] text-white/25">{form.code.length} chars · {form.code.split("\n").length} lines</p>
           </div>
-        </div>
-
-        {/* Pricing */}
-        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-6 space-y-5">
-          <h2 className="text-[10px] font-semibold text-white/40 uppercase tracking-widest">Pricing</h2>
-          <div className="flex gap-3">
-            {[
-              { value: "free", label: "Free", icon: "🆓" },
-              { value: "paid", label: "Paid", icon: "💰" },
-            ].map((opt) => (
-              <button key={opt.value} type="button" onClick={() => set("pricingType", opt.value)}
-                className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${
-                  form.pricingType === opt.value
-                    ? "border-indigo-500/50 bg-indigo-500/10 text-white"
-                    : "border-white/[0.08] bg-white/[0.02] text-white/50"
-                }`}
-              >
-                <span>{opt.icon}</span>
-                <span className="text-sm font-semibold">{opt.label}</span>
-              </button>
-            ))}
-          </div>
-          {form.pricingType === "paid" && (
-            <div className="flex gap-4 items-end">
-              <div className="space-y-1.5 w-40">
-                <label className="text-xs font-medium text-white/60">Price (INR) <span className="text-red-400">*</span></label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/30">₹</span>
-                  <input type="number" min="1" step="1" value={form.price} onChange={(e) => set("price", e.target.value)}
-                    className="w-full pl-7 pr-3 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
-                  />
-                </div>
-              </div>
-              {form.price && Number(form.price) > 0 && (
-                <div className="pb-2.5 text-xs text-white/40 space-y-0.5">
-                  <p>You earn: <span className="text-emerald-400 font-semibold">₹{(Number(form.price) * 0.80).toFixed(2)}</span></p>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {submitError && (
