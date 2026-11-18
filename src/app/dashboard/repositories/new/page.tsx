@@ -51,7 +51,7 @@ export default function NewRepositoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-white">
+    <div className="min-h-screen bg-[#0a0a0f] text-white">
       <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
         {/* Header */}
         <div className="space-y-1">
@@ -80,10 +80,10 @@ export default function NewRepositoryPage() {
               onChange={(e) => handleNameChange(e.target.value)}
               placeholder="my-awesome-project"
               required
-              className={`w-full bg-[#161b22] border rounded-lg px-4 py-2.5 text-white/90 text-sm placeholder-white/20 focus:outline-none transition-colors ${
+              className={`w-full bg-[#0d0d14] border rounded-lg px-4 py-2.5 text-white/90 text-sm placeholder-white/20 focus:outline-none transition-colors mt-2 ${
                 nameError
                   ? "border-red-400/50 focus:border-red-400"
-                  : "border-white/10 focus:border-emerald-400/50"
+                  : "border-white/[0.08] focus:border-indigo-400/50"
               }`}
             />
             {nameError ? (
@@ -108,7 +108,7 @@ export default function NewRepositoryPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="A short description of what this project does"
-              className="w-full bg-[#161b22] border border-white/10 rounded-lg px-4 py-2.5 text-white/90 text-sm placeholder-white/20 focus:outline-none focus:border-emerald-400/50"
+              className="w-full bg-[#0d0d14] border border-white/[0.08] rounded-lg px-4 py-2.5 text-white/90 text-sm placeholder-white/20 focus:outline-none focus:border-indigo-400/50 transition-colors mt-2"
             />
           </div>
 
@@ -118,7 +118,7 @@ export default function NewRepositoryPage() {
           {/* Visibility */}
           <div className="space-y-3">
             <label className="text-white/70 text-sm font-medium">Visibility</label>
-            <div className="space-y-2">
+            <div className="space-y-2 mt-4">
               {[
                 {
                   value: "public" as const,
@@ -147,8 +147,8 @@ export default function NewRepositoryPage() {
                   key={opt.value}
                   className={`flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-colors ${
                     visibility === opt.value
-                      ? "border-emerald-400/40 bg-emerald-400/5"
-                      : "border-white/10 hover:border-white/20"
+                      ? "border-indigo-400/40 bg-indigo-400/5"
+                      : "border-white/[0.08] hover:border-white/20"
                   }`}
                 >
                   <input
@@ -159,7 +159,7 @@ export default function NewRepositoryPage() {
                     onChange={() => setVisibility(opt.value)}
                     className="sr-only"
                   />
-                  <span className={visibility === opt.value ? "text-emerald-400" : "text-white/30"}>
+                  <span className={visibility === opt.value ? "text-indigo-400" : "text-white/30"}>
                     {opt.icon}
                   </span>
                   <div>
@@ -169,10 +169,10 @@ export default function NewRepositoryPage() {
                     <p className="text-white/30 text-xs mt-0.5">{opt.desc}</p>
                   </div>
                   <div className={`ml-auto w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                    visibility === opt.value ? "border-emerald-400" : "border-white/20"
+                    visibility === opt.value ? "border-indigo-400" : "border-white/20"
                   }`}>
                     {visibility === opt.value && (
-                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <div className="w-2 h-2 rounded-full bg-indigo-400" />
                     )}
                   </div>
                 </label>
@@ -185,13 +185,13 @@ export default function NewRepositoryPage() {
 
           {/* Default branch */}
           <div className="space-y-1.5">
-            <label className="text-white/70 text-sm font-medium">Default branch</label>
+            <label className="text-white/70 text-sm font-medium mr-4">Default branch</label>
             <input
               type="text"
               value={defaultBranch}
               onChange={(e) => setDefaultBranch(e.target.value)}
               placeholder="main"
-              className="w-full bg-[#161b22] border border-white/10 rounded-lg px-4 py-2.5 text-white/90 text-sm placeholder-white/20 focus:outline-none focus:border-emerald-400/50 max-w-xs"
+              className="w-full bg-[#0d0d14] border border-white/[0.08] rounded-lg px-4 py-2.5 text-white/90 text-sm placeholder-white/20 focus:outline-none focus:border-indigo-400/50 transition-colors max-w-xs"
             />
           </div>
 
@@ -205,7 +205,7 @@ export default function NewRepositoryPage() {
                 className="sr-only"
               />
               <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-                autoInit ? "bg-emerald-500 border-emerald-500" : "border-white/20 group-hover:border-white/40"
+                autoInit ? "bg-indigo-500 border-indigo-500" : "border-white/20 group-hover:border-white/40"
               }`}>
                 {autoInit && (
                   <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -240,7 +240,7 @@ export default function NewRepositoryPage() {
             <button
               type="submit"
               disabled={isCreating || !!nameError || !name.trim()}
-              className="px-6 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors flex items-center gap-2"
+              className="px-6 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors flex items-center gap-2"
             >
               {isCreating ? (
                 <>

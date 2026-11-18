@@ -34,13 +34,10 @@ interface ProfileData {
   email: string;
   avatar: string;
   bio: string;
-  plan: string;
   isVerified: boolean;
   preferences: UserPreferences;
   createdAt: string;
   stats: { publicRepos: number; totalStars: number };
-  subscription: { plan: string; status: string; renewalDate: string | null };
-  wallet: { balance: number; totalEarned: number; currency: string };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -547,28 +544,26 @@ export default function SettingsPage() {
                   <div className="space-y-5">
                     {/* Change password */}
                     <SectionCard title="Change password" description="Update the password used to sign in to your account.">
-                      {profile?.plan !== undefined && (
-                        <div className="space-y-3">
-                          <div>
-                            <FieldLabel>Current password</FieldLabel>
-                            <PasswordInput value={currentPassword} onChange={setCurrentPassword} placeholder="Your current password" />
-                          </div>
-                          <div>
-                            <FieldLabel>New password</FieldLabel>
-                            <PasswordInput value={newPassword} onChange={setNewPassword} placeholder="At least 8 characters" />
-                          </div>
-                          <div>
-                            <FieldLabel>Confirm new password</FieldLabel>
-                            <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="Repeat new password" />
-                          </div>
-                          {newPassword && confirmPassword && newPassword !== confirmPassword && (
-                            <p className="text-red-400 text-xs">Passwords do not match</p>
-                          )}
-                          <div className="flex justify-end pt-2 border-t border-white/[0.05]">
-                            <SaveButton loading={savingPassword} onClick={handleChangePassword} label="Update password" />
-                          </div>
+                      <div className="space-y-3">
+                        <div>
+                          <FieldLabel>Current password</FieldLabel>
+                          <PasswordInput value={currentPassword} onChange={setCurrentPassword} placeholder="Your current password" />
                         </div>
-                      )}
+                        <div>
+                          <FieldLabel>New password</FieldLabel>
+                          <PasswordInput value={newPassword} onChange={setNewPassword} placeholder="At least 8 characters" />
+                        </div>
+                        <div>
+                          <FieldLabel>Confirm new password</FieldLabel>
+                          <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="Repeat new password" />
+                        </div>
+                        {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                          <p className="text-red-400 text-xs">Passwords do not match</p>
+                        )}
+                        <div className="flex justify-end pt-2 border-t border-white/[0.05]">
+                          <SaveButton loading={savingPassword} onClick={handleChangePassword} label="Update password" />
+                        </div>
+                      </div>
                     </SectionCard>
 
                     {/* Active sessions */}
@@ -649,12 +644,10 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="space-y-3 pt-2 border-t border-red-500/10">
-                          {profile?.plan !== undefined && (
-                            <div>
-                              <FieldLabel>Confirm your password</FieldLabel>
-                              <PasswordInput value={deletePassword} onChange={setDeletePassword} placeholder="Your password" />
-                            </div>
-                          )}
+                          <div>
+                            <FieldLabel>Confirm your password</FieldLabel>
+                            <PasswordInput value={deletePassword} onChange={setDeletePassword} placeholder="Your password" />
+                          </div>
                           <div>
                             <FieldLabel>Type <span className="text-red-400 font-mono">DELETE</span> to confirm</FieldLabel>
                             <input

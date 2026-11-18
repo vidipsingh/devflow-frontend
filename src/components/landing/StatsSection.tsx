@@ -43,7 +43,7 @@
         { value: formatCount(data.totalUsers),         label: "Developers joined",      color: "text-indigo-400"  },
         { value: formatCount(data.totalRepositories),  label: "Repositories hosted",    color: "text-cyan-400"    },
         { value: formatCount(data.totalSnippets),      label: "Marketplace snippets",   color: "text-emerald-400" },
-        { value: formatCount(data.totalPullRequests),  label: "Active contributors",    color: "text-violet-400"  },
+        { value: formatCount(data.totalPullRequests),  label: "Issues tracked",         color: "text-violet-400"  },
       ]
     : FALLBACK_STATS;
 
